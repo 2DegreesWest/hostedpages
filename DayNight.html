@@ -1,0 +1,122 @@
+<div id="anychart-embed-src-sankey-diagram-titanic-survivors" class="anychart-embed anychart-embed-src-sankey-diagram-titanic-survivors">
+<script src="https://cdn.anychart.com/releases/v8/js/anychart-core.min.js"></script>
+<script src="https://cdn.anychart.com/releases/v8/js/anychart-sankey.min.js"></script>
+<script src="https://cdn.anychart.com/releases/v8/js/anychart-ui.min.js"></script>
+<script src="https://cdn.anychart.com/releases/v8/js/anychart-exports.min.js"></script>
+<div id="ac_style_src-sankey-diagram-titanic-survivors" style="display:none;">
+html,
+body,
+#container {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+</div>
+<script>(function(){
+function ac_add_to_head(el){
+	var head = document.getElementsByTagName('head')[0];
+	head.insertBefore(el,head.firstChild);
+}
+function ac_add_link(url){
+	var el = document.createElement('link');
+	el.rel='stylesheet';el.type='text/css';el.media='all';el.href=url;
+	ac_add_to_head(el);
+}
+function ac_add_style(css){
+	var ac_style = document.createElement('style');
+	if (ac_style.styleSheet) ac_style.styleSheet.cssText = css;
+	else ac_style.appendChild(document.createTextNode(css));
+	ac_add_to_head(ac_style);
+}
+ac_add_link('https://cdn.anychart.com/releases/v8/css/anychart-ui.min.css');
+ac_add_link('https://cdn.anychart.com/releases/v8/fonts/css/anychart-font.min.css');
+ac_add_style(document.getElementById("ac_style_src-sankey-diagram-titanic-survivors").innerHTML);
+ac_add_style(".anychart-embed-src-sankey-diagram-titanic-survivors{width:600px;height:450px;}");
+})();</script>
+<div id="container"></div>
+<script>
+anychart.onDocumentReady(function () {
+  // add data
+  var data = [
+    {from: 'Total Incidents', to: 'Day', value: 1000},
+    {from: 'Total Incidents', to: 'Night', value: 300},
+    {from: 'Day', to: '6-9am', value: 100},
+    {from: 'Day', to: '9-12pm', value: 300},
+    {from: 'Day', to: '12-3pm', value: 500},
+    {from: 'Day', to: '3-6pm', value: 100},
+    {from: 'Night', to: '6-9pm', value: 50},
+    {from: 'Night', to: '9-12am', value: 200},
+    {from: 'Night', to: '12-3am', value: 25},
+    {from: 'Night', to: '3-6am', value: 25}
+ ];
+
+  // create a sankey diagram instance
+  var chart = anychart.sankey();
+
+  // load the data to the sankey diagram instance
+  chart.data(data);
+
+  // set the chart's padding
+  chart.padding(20, 40);
+
+  // configure a custom color palette
+  chart.palette([
+    '#f5dc50',
+    '#e1a03c',
+    '#c87d5a',
+    '#fff0c8',
+    '#aa96b4',
+    '#6e5a7d',
+    '#e19196',
+    '#419bd2',
+    '#46afaa',
+    '#5a5050'
+  ]);
+
+  // customize the nodes:
+  // set the width
+  chart.nodeWidth('40%');
+  // set the padding
+  chart.nodePadding(30);
+  // customize the labels
+  chart.node().normal().labels().fontSize(14);
+  chart.node().labels().useHtml(true);
+  chart
+    .node()
+    .labels()
+    .format('<span style="font-weight:bold">{%name}</span><br>{%value}');
+
+  // customize the links
+  chart.flow({
+    normal: {
+      fill: function () {
+        return anychart.color.lighten(this.sourceColor, 0.5) + ' ' + 0.3;
+      }
+    },
+    hovered: {
+      fill: function () {
+        return this.sourceColor + ' ' + 0.8;
+      }
+    }
+  });
+
+  // add a title and customize it
+  chart
+    .title()
+    .enabled(true)
+    .useHtml(true)
+    .text(
+      '<span style = "color: #2b2b2b; font-size:20px;">Incidents per Day/Night</span>' +
+      '<br/><span style="color:#00bfa5; font-size: 16px;">(by gender, age, ticket class)</span>'
+    );
+
+  // set the chart container id
+  chart.container('container');
+
+  // draw the chart
+  chart.draw();
+
+});
+</script>
+</div>
