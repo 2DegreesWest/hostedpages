@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <meta content="IE=edge" http-equiv="X-UA-Compatible">
+  <meta content="width=device-width, initial-scale=1" name="viewport">
+  <title>Donut Chart with Geo Map as Center Content</title>
+  <link href="https://playground.anychart.com/gallery/src/Pie_and_Donut_Charts/Donut_Chart_with_Geo_Map_as_Center_Content/iframe" rel="canonical">
+  <meta content="Choropleth Map,Circle Chart,Donut Chart,Doughnut Chart,Geo Chart,Geo Visualization,Pie Chart" name="keywords">
+  <meta content="AnyChart - JavaScript Charts designed to be embedded and integrated" name="description">
+  <!--[if lt IE 9]>
+<script src="https://oss.maxcdn.com/html5shiv/3.7.3/html5shiv.min.js"></script>
+<script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
+<![endif]-->
+  <link href="https://cdn.anychart.com/releases/v8/css/anychart-ui.min.css" rel="stylesheet" type="text/css">
+  <link href="https://cdn.anychart.com/releases/v8/fonts/css/anychart-font.min.css" rel="stylesheet" type="text/css">
+  <style>html,
+body,
+#container {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}</style>
+ </head>
+ <body>
+  <div id="container"></div>
+  <script src="https://cdn.anychart.com/releases/v8/js/anychart-base.min.js"></script>
+  <script src="https://cdn.anychart.com/releases/v8/js/anychart-map.min.js"></script>
+  <script src="https://cdn.anychart.com/releases/v8/js/anychart-ui.min.js"></script>
+  <script src="https://cdn.anychart.com/releases/v8/js/anychart-exports.min.js"></script>
+  <script src="https://cdn.anychart.com/geodata/latest/countries/united_states_of_america/united_states_of_america.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.3.15/proj4.js"></script>
+  <script type="text/javascript">anychart.onDocumentReady(function () {
+  var colors = [
+    '#0072A5',
+    '#3BBA7B',
+    '#FFCD61',
+    '#FA5446',
+    '#7D58BD',
+    '#29D8D5'
+  ];
+
+  // create map
+  var map = anychart.map();
+  // sets geodata using https://cdn.anychart.com/geodata/latest/countries/united_states_of_america/united_states_of_america.js
+  map.geoData('anychart.maps.united_states_of_america');
+  // set map padding and margin
+  map.padding(0).margin(0);
+
+  // create first label for map and set settings it
+  map
+    .label(0)
+    .enabled(true)
+    .text('SALES')
+    .adjustFontSize(true, false)
+    .maxFontSize(30)
+    .minFontSize(5)
+    .width('30%')
+    .fontColor('black')
+    .position('center')
+    .anchor('center')
+    .hAlign('center')
+    .offsetY('-40%');
+
+  // create second label for map and set settings it
+  map
+    .label(1)
+    .enabled(true)
+    .text('$212,600,000')
+    .adjustFontSize(true, false)
+    .maxFontSize(35)
+    .minFontSize(5)
+    .width('80%')
+    .fontColor('black')
+    .position('center')
+    .anchor('center')
+    .hAlign('center')
+    .offsetY('40%');
+
+  // create choropleth series with generated data
+  var choropleth = map.choropleth(generateData(map));
+  // set stroke
+  choropleth.stroke('1.5 #fff');
+
+  // create ordinal color scale
+  var colorScale = anychart.scales.ordinalColor([
+    { equal: 'Northeast', color: colors[0] },
+    { equal: 'Midatlantic', color: colors[1] },
+    { equal: 'Southeast', color: colors[2] },
+    { equal: 'Midwest', color: colors[3] },
+    { equal: 'West', color: colors[4] },
+    { equal: 'Great Lakes', color: colors[5] }
+  ]);
+  // set color scale
+  choropleth.colorScale(colorScale);
+
+  var data = [
+    { x: 'Northeast', value: 50 },
+    { x: 'Midatlantic', value: 80 },
+    { x: 'Southeast', value: 50 },
+    { x: 'Midwest', value: 30 },
+    { x: 'West', value: 45 },
+    { x: 'Great Lakes', value: 40 }
+  ];
+
+  // create pie chart with passed data
+  var pie = anychart.pie(data);
+  pie
+    .stroke('2 #fff')
+    // create empty area in pie chart
+    .innerRadius('80%')
+    // disabled labels
+    .labels(false);
+
+  // set map to center content of chart
+  pie.center().content(map);
+
+  // set palette
+  pie.palette().items(colors);
+  // set legend settings
+  pie.legend().position('right').itemsLayout('vertical');
+
+  // set container id for the chart
+  pie.container('container');
+  // initiate chart drawing
+  pie.draw();
+});
+
+function generateData(chart) {
+  var data = [];
+  var features = chart.geoData().features;
+
+  for (var i = 0; i < features.length; i++) {
+    var feature = features[i];
+
+    if (feature.properties) {
+      var id = feature.properties[chart.geoIdField()];
+      var value;
+
+      switch (id) {
+        case 'US.WA':
+        case 'US.OR':
+        case 'US.CA':
+        case 'US.NV':
+        case 'US.AZ':
+        case 'US.AK':
+        case 'US.HI':
+          value = 'West';
+          break;
+        case 'US.ID':
+        case 'US.MT':
+        case 'US.ND':
+        case 'US.SD':
+        case 'US.NE':
+        case 'US.KS':
+        case 'US.OK':
+        case 'US.TX':
+        case 'US.NM':
+        case 'US.CO':
+        case 'US.UT':
+        case 'US.WY':
+          value = 'Midwest';
+          break;
+        case 'US.AR':
+        case 'US.TN':
+        case 'US.NC':
+        case 'US.SC':
+        case 'US.GA':
+        case 'US.LA':
+        case 'US.MS':
+        case 'US.AL':
+        case 'US.FL':
+          value = 'Southeast';
+          break;
+        case 'US.MN':
+        case 'US.WI':
+        case 'US.MI':
+        case 'US.IA':
+        case 'US.MO':
+        case 'US.IL':
+        case 'US.IN':
+        case 'US.KY':
+        case 'US.OH':
+          value = 'Great Lakes';
+          break;
+        case 'US.PA':
+        case 'US.WV':
+        case 'US.VA':
+        case 'US.MD':
+        case 'US.DE':
+        case 'US.NJ':
+          value = 'Midatlantic';
+          break;
+        default:
+          value = 'Northeast';
+      }
+
+      data.push({ id: id, value: value });
+    }
+  }
+
+  return data;
+}</script>
+ </body>
+</html>
