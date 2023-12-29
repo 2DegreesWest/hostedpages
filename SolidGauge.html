@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <meta content="IE=edge" http-equiv="X-UA-Compatible">
+  <meta content="width=device-width, initial-scale=1" name="viewport">
+  <title>Solid Gauge</title>
+  <link href="https://playground.anychart.com/gallery/src/Circular_Gauges/Solid_Gauge/iframe" rel="canonical">
+  <meta content="Acme Corp,Circular Gauge,Gauges" name="keywords">
+  <meta content="AnyChart - JavaScript Charts designed to be embedded and integrated" name="description">
+  <!--[if lt IE 9]>
+<script src="https://oss.maxcdn.com/html5shiv/3.7.3/html5shiv.min.js"></script>
+<script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
+<![endif]-->
+  <link href="https://cdn.anychart.com/releases/v8/css/anychart-ui.min.css" rel="stylesheet" type="text/css">
+  <link href="https://cdn.anychart.com/releases/v8/fonts/css/anychart-font.min.css" rel="stylesheet" type="text/css">
+  <style>html,
+body,
+#container {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}</style>
+ </head>
+ <body>
+  <div id="container"></div>
+  <script src="https://cdn.anychart.com/releases/v8/js/anychart-base.min.js"></script>
+  <script src="https://cdn.anychart.com/releases/v8/js/anychart-ui.min.js"></script>
+  <script src="https://cdn.anychart.com/releases/v8/js/anychart-exports.min.js"></script>
+  <script src="https://cdn.anychart.com/releases/v8/js/anychart-circular-gauge.min.js"></script>
+  <script type="text/javascript">var names = [
+  'Temazepam',
+  'Guaifenesin',
+  'Salicylic Acid',
+  'Fluoride',
+  'Zinc Oxide',
+  'Acetaminophen'
+];
+var data = [23, 34, 67, 93, 56, 100];
+var dataSet = anychart.data.set(data);
+var palette = anychart.palettes
+  .distinctColors()
+  .items([
+    '#64b5f6',
+    '#1976d2',
+    '#ef6c00',
+    '#ffd54f',
+    '#455a64',
+    '#96a6a6',
+    '#dd2c00',
+    '#00838f',
+    '#00bfa5',
+    '#ffa000'
+  ]);
+
+var makeBarWithBar = function (gauge, radius, i, width) {
+  var stroke = null;
+  gauge
+    .label(i)
+    .text(names[i] + ', <span style="">' + data[i] + '%</span>') // color: #7c868e
+    .useHtml(true);
+  gauge
+    .label(i)
+    .hAlign('center')
+    .vAlign('middle')
+    .anchor('right-center')
+    .padding(0, 10)
+    .height(width / 2 + '%')
+    .offsetY(radius + '%')
+    .offsetX(0);
+
+  gauge
+    .bar(i)
+    .dataIndex(i)
+    .radius(radius)
+    .width(width)
+    .fill(palette.itemAt(i))
+    .stroke(null)
+    .zIndex(5);
+  gauge
+    .bar(i + 100)
+    .dataIndex(5)
+    .radius(radius)
+    .width(width)
+    .fill('#F5F4F4')
+    .stroke(stroke)
+    .zIndex(4);
+
+  return gauge.bar(i);
+};
+
+anychart.onDocumentReady(function () {
+  var gauge = anychart.gauges.circular();
+  gauge.data(dataSet);
+  gauge
+    .fill('#fff')
+    .stroke(null)
+    .padding(0)
+    .margin(100)
+    .startAngle(0)
+    .sweepAngle(270);
+
+  var axis = gauge.axis().radius(100).width(1).fill(null);
+  axis
+    .scale()
+    .minimum(0)
+    .maximum(100)
+    .ticks({ interval: 1 })
+    .minorTicks({ interval: 1 });
+  axis.labels().enabled(false);
+  axis.ticks().enabled(false);
+  axis.minorTicks().enabled(false);
+  makeBarWithBar(gauge, 100, 0, 17);
+  makeBarWithBar(gauge, 80, 1, 17);
+  makeBarWithBar(gauge, 60, 2, 17);
+  makeBarWithBar(gauge, 40, 3, 17);
+  makeBarWithBar(gauge, 20, 4, 17);
+
+  gauge.margin(50);
+  gauge
+    .title()
+    .text(
+      'Medicine manufacturing progress' +
+      '<br/><span style="color:#929292; font-size: 12px;">(ACME CORPORATION)</span>'
+    )
+    .useHtml(true);
+  gauge
+    .title()
+    .enabled(true)
+    .hAlign('center')
+    .padding(0)
+    .margin([0, 0, 20, 0]);
+
+  gauge.container('container');
+  gauge.draw();
+});</script>
+ </body>
+</html>
