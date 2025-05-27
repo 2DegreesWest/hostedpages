@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Cricklade Resilience</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <style>
+    #map {
+      height: 100vh;
+      width: 100%;
+    }
+  </style>
+</head>
+<body>
+
+<div id="map"></div>
+
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+<script>
+  // Centered on Cricklade, Wiltshire
+  const map = L.map('map').setView([51.6409, -1.8577], 14);
+
+  // OSM basemap
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '© OpenStreetMap contributors'
+  }).addTo(map);
+
+  // Load local GeoJSON - file must be in same folder as this HTML
+  fetch('CrickladeWardenZones.geojson')
+    .then(res => res.json())
+    .then(data => {
+      L.geoJSON(data, {
+        style: { color: 'blue' }
+      }).addTo(map);
+    });
+
+  //fetch('second.geojson')
+    //.then(res => res.json())
+    //.then(data => {
+    //  L.geoJSON(data, {
+    //    style: { color: 'green' }
+    //  }).addTo(map);
+    //});
+</script>
+
+</body>
+</html>
