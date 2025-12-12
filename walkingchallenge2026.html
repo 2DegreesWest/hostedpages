@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Walking Challenge Tracker</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 100%;
+            min-height: 100vh;
+            background: white;
+        }
+        .header {
+            background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+            color: white;
+            padding: 20px 15px;
+            text-align: center;
+        }
+        .header h1 {
+            font-size: 1.5em;
+            margin-bottom: 8px;
+        }
+        .header p {
+            font-size: 0.9em;
+            opacity: 0.9;
+        }
+        #map {
+            height: 60vh;
+            width: 100%;
+            min-height: 400px;
+        }
+        .leaderboard {
+            padding: 20px 15px;
+            background: #f8f9fa;
+        }
+        .leaderboard h2 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+            text-align: center;
+        }
+        .walker-item {
+            background: white;
+            padding: 12px 15px;
+            margin-bottom: 10px;
+            border-radius: 10px;
+            border-left: 5px solid;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .walker-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .walker-icon {
+            font-size: 1.5em;
+        }
+        .walker-name {
+            font-weight: bold;
+            font-size: 1.1em;
+        }
+        .walker-checkpoint {
+            font-size: 0.85em;
+            color: #666;
+        }
+        .walker-distance {
+            font-weight: bold;
+            font-size: 1.2em;
+            color: #2c3e50;
+        }
+        .position {
+            background: #ffd700;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 0.9em;
+        }
+        .route-info {
+            padding: 15px;
+            background: white;
+            text-align: center;
+            font-size: 0.9em;
+            color: #666;
+        }
+        .route-info strong {
+            color: #2c3e50;
+        }
+
+        @media (min-width: 768px) {
+            .container {
+                max-width: 800px;
+                margin: 0 auto;
+                border-radius: 15px;
+                overflow: hidden;
+                margin-top: 20px;
+                margin-bottom: 20px;
+                min-height: auto;
+            }
+            .header h1 {
+                font-size: 2em;
+            }
+            #map {
+                height: 500px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚶‍♂️ Walking Challenge 🚶‍♀️</h1>
+            <p>Race through National Trust Properties</p>
+        </div>
+        
+        <div id="map"></div>
+        
+        <div class="route-info">
+            <strong>Total Route:</strong> 303 miles from Wimpole Estate to Feldon Forest Farm
+        </div>
+        
+        <div class="leaderboard">
+            <h2>🏆 Current Standings</h2>
+            <div id="walker-list"></div>
+        </div>
+    </div>
+
+    <script>
+        // Route checkpoints
+        const checkpoints = [
+            { name: 'Wimpole Estate', lat: 52.1410026, lng: -0.0496705 },
+            { name: 'Anglesey Abbey', lat: 52.236444, lng: 0.240000 },
+            { name: 'Ickworth', lat: 52.2204521, lng: 0.6569313 },
+            { name: 'Blickling Hall', lat: 52.811694, lng: 1.2316769 },
+            { name: 'Felbrigg Hall', lat: 52.907620, lng: 1.260480 },
+            { name: 'Holkham Hall', lat: 52.955839, lng: 0.814486 },
+            { name: 'Feldon Forest Farm', lat: 52.319490, lng: -1.381110 }
+        ];
+
+        // Calculate distances between checkpoints (convert km to miles)
+        function getDistance(lat1, lon1, lat2, lon2) {
+            const R = 3958.8; // Earth's radius in miles
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
+        }
+
+        // Calculate cumulative distances
+        const routeDistances = [0];
+        for (let i = 1; i < checkpoints.length; i++) {
+            const dist = getDistance(
+                checkpoints[i-1].lat, checkpoints[i-1].lng,
+                checkpoints[i].lat, checkpoints[i].lng
+            );
+            routeDistances.push(routeDistances[i-1] + dist);
+        }
+
+        // Walker data (mock weekly progress in miles)
+        const walkers = [
+            { name: 'Rich', color: '#e74c3c', distance: 20, icon: '🔴' },
+            { name: 'Caroline', color: '#3498db', distance: 81, icon: '🔵' },
+            { name: 'Natalie', color: '#2ecc71', distance: 56, icon: '🟢' },
+            { name: 'Helen', color: '#f39c12', distance: 87, icon: '🟠' },
+            { name: 'Jess', color: '#9b59b6', distance: 90, icon: '🟣' }
+        ];
+
+        // Initialize map
+        const map = L.map('map').setView([52.5, 0.3], 8);
+
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            attribution: '© OpenStreetMap contributors © CARTO',
+            subdomains: 'abcd',
+            maxZoom: 20
+        }).addTo(map);
+
+        // Draw route line
+        const routeLine = checkpoints.map(cp => [cp.lat, cp.lng]);
+        L.polyline(routeLine, {
+            color: '#95a5a6',
+            weight: 3,
+            opacity: 0.5,
+            dashArray: '10, 5'
+        }).addTo(map);
+
+        // Add checkpoint markers
+        checkpoints.forEach((cp, idx) => {
+            const marker = L.circleMarker([cp.lat, cp.lng], {
+                radius: 8,
+                fillColor: idx === 0 ? '#27ae60' : idx === checkpoints.length - 1 ? '#c0392b' : '#3498db',
+                color: '#fff',
+                weight: 2,
+                opacity: 1,
+                fillOpacity: 0.9
+            }).addTo(map);
+            
+            const label = idx === 0 ? 'START' : idx === checkpoints.length - 1 ? 'FINISH' : `Property ${idx}`;
+            marker.bindPopup(`<b>${label}</b><br>${cp.name}<br>${Math.round(routeDistances[idx])} miles`);
+        });
+
+        // Function to get position on route based on distance in miles
+        function getPositionOnRoute(distanceMiles) {
+            const totalDistance = routeDistances[routeDistances.length - 1];
+            if (distanceMiles >= totalDistance) {
+                const lastCP = checkpoints[checkpoints.length - 1];
+                return { lat: lastCP.lat, lng: lastCP.lng, checkpoint: checkpoints.length - 1 };
+            }
+            
+            for (let i = 0; i < routeDistances.length - 1; i++) {
+                if (distanceMiles >= routeDistances[i] && distanceMiles < routeDistances[i + 1]) {
+                    const segmentDistance = routeDistances[i + 1] - routeDistances[i];
+                    const progressInSegment = distanceMiles - routeDistances[i];
+                    const ratio = progressInSegment / segmentDistance;
+                    
+                    const lat = checkpoints[i].lat + (checkpoints[i + 1].lat - checkpoints[i].lat) * ratio;
+                    const lng = checkpoints[i].lng + (checkpoints[i + 1].lng - checkpoints[i].lng) * ratio;
+                    
+                    return { lat, lng, checkpoint: i };
+                }
+            }
+            return { lat: checkpoints[0].lat, lng: checkpoints[0].lng, checkpoint: 0 };
+        }
+
+        // Add walker positions
+        walkers.forEach(walker => {
+            const pos = getPositionOnRoute(walker.distance);
+            
+            // Draw progress line
+            let progressPath = [];
+            for (let i = 0; i <= pos.checkpoint; i++) {
+                progressPath.push([checkpoints[i].lat, checkpoints[i].lng]);
+            }
+            progressPath.push([pos.lat, pos.lng]);
+            
+            L.polyline(progressPath, {
+                color: walker.color,
+                weight: 4,
+                opacity: 0.8
+            }).addTo(map);
+
+            // Add walker marker
+            const divIcon = L.divIcon({
+                html: `<div style="font-size: 28px; text-shadow: 0 0 3px white;">${walker.icon}</div>`,
+                className: 'custom-marker',
+                iconSize: [30, 30],
+                iconAnchor: [15, 15]
+            });
+
+            L.marker([pos.lat, pos.lng], { icon: divIcon }).addTo(map)
+                .bindPopup(`<b>${walker.name}</b><br>${walker.distance} miles walked`);
+        });
+
+        // Sort walkers by distance and display leaderboard
+        const sortedWalkers = [...walkers].sort((a, b) => b.distance - a.distance);
+        const walkerList = document.getElementById('walker-list');
+
+        sortedWalkers.forEach((walker, idx) => {
+            const pos = getPositionOnRoute(walker.distance);
+            const nextCheckpoint = pos.checkpoint < checkpoints.length - 1 ? 
+                checkpoints[pos.checkpoint + 1].name : 'Finish';
+            
+            const posColor = idx === 0 ? '#ffd700' : idx === 1 ? '#c0c0c0' : idx === 2 ? '#cd7f32' : '#e0e0e0';
+            
+            walkerList.innerHTML += `
+                <div class="walker-item" style="border-color: ${walker.color};">
+                    <div class="walker-left">
+                        <div class="position" style="background: ${posColor};">${idx + 1}</div>
+                        <div class="walker-icon">${walker.icon}</div>
+                        <div>
+                            <div class="walker-name">${walker.name}</div>
+                            <div class="walker-checkpoint">Next: ${nextCheckpoint}</div>
+                        </div>
+                    </div>
+                    <div class="walker-distance">${walker.distance} miles</div>
+                </div>
+            `;
+        });
+
+        // Adjust map bounds
+        const bounds = L.latLngBounds(routeLine);
+        map.fitBounds(bounds, { padding: [50, 50] });
+    </script>
+</body>
+</html>
