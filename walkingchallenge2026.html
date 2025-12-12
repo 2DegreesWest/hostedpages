@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Walking Challenge Tracker</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
     <style>
         * {
@@ -68,7 +69,15 @@
             gap: 10px;
         }
         .walker-icon {
-            font-size: 1.5em;
+            font-size: 1.2em;
+            width: 32px;
+            height: 32px;
+            background: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: black;
         }
         .walker-name {
             font-weight: bold;
@@ -179,11 +188,11 @@
 
         // Walker data (mock weekly progress in miles)
         const walkers = [
-            { name: 'Rich', color: '#e74c3c', distance: 20, icon: '🔴' },
-            { name: 'Caroline', color: '#3498db', distance: 81, icon: '🔵' },
-            { name: 'Natalie', color: '#2ecc71', distance: 56, icon: '🟢' },
-            { name: 'Helen', color: '#f39c12', distance: 87, icon: '🟠' },
-            { name: 'Jess', color: '#9b59b6', distance: 90, icon: '🟣' }
+            { name: 'Rich', color: '#e74c3c', distance: 71, icon: 'fa-solid fa-futbol' },
+            { name: 'Caroline', color: '#3498db', distance: 81, icon: 'fa-solid fa-cat' },
+            { name: 'Natalie', color: '#2ecc71', distance: 56, icon: 'fa-solid fa-hammer' },
+            { name: 'Helen', color: '#f39c12', distance: 87, icon: 'fa-solid fa-dog' },
+            { name: 'Jess', color: '#9b59b6', distance: 76, icon: 'fa-solid fa-person-running' }
         ];
 
         // Initialize map
@@ -204,7 +213,36 @@
             dashArray: '10, 5'
         }).addTo(map);
 
-        // Add checkpoint markers
+        // Add walker positions and progress lines first (so they're below checkpoints)
+        walkers.forEach(walker => {
+            const pos = getPositionOnRoute(walker.distance);
+            
+            // Draw progress line
+            let progressPath = [];
+            for (let i = 0; i <= pos.checkpoint; i++) {
+                progressPath.push([checkpoints[i].lat, checkpoints[i].lng]);
+            }
+            progressPath.push([pos.lat, pos.lng]);
+            
+            L.polyline(progressPath, {
+                color: walker.color,
+                weight: 4,
+                opacity: 0.8
+            }).addTo(map);
+
+            // Add walker marker
+            const divIcon = L.divIcon({
+                html: `<div style="width: 36px; height: 36px; background: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0,0,0,0.4); border: 3px solid ${walker.color};"><i class="${walker.icon}" style="color: black; font-size: 18px;"></i></div>`,
+                className: 'custom-marker',
+                iconSize: [36, 36],
+                iconAnchor: [18, 18]
+            });
+
+            L.marker([pos.lat, pos.lng], { icon: divIcon }).addTo(map)
+                .bindPopup(`<b>${walker.name}</b><br>${walker.distance} miles walked`);
+        });
+
+        // Add checkpoint markers ON TOP
         checkpoints.forEach((cp, idx) => {
             const marker = L.circleMarker([cp.lat, cp.lng], {
                 radius: 8,
@@ -212,7 +250,8 @@
                 color: '#fff',
                 weight: 2,
                 opacity: 1,
-                fillOpacity: 0.9
+                fillOpacity: 0.9,
+                zIndexOffset: 1000
             }).addTo(map);
             
             const label = idx === 0 ? 'START' : idx === checkpoints.length - 1 ? 'FINISH' : `Property ${idx}`;
@@ -242,35 +281,6 @@
             return { lat: checkpoints[0].lat, lng: checkpoints[0].lng, checkpoint: 0 };
         }
 
-        // Add walker positions
-        walkers.forEach(walker => {
-            const pos = getPositionOnRoute(walker.distance);
-            
-            // Draw progress line
-            let progressPath = [];
-            for (let i = 0; i <= pos.checkpoint; i++) {
-                progressPath.push([checkpoints[i].lat, checkpoints[i].lng]);
-            }
-            progressPath.push([pos.lat, pos.lng]);
-            
-            L.polyline(progressPath, {
-                color: walker.color,
-                weight: 4,
-                opacity: 0.8
-            }).addTo(map);
-
-            // Add walker marker
-            const divIcon = L.divIcon({
-                html: `<div style="font-size: 28px; text-shadow: 0 0 3px white;">${walker.icon}</div>`,
-                className: 'custom-marker',
-                iconSize: [30, 30],
-                iconAnchor: [15, 15]
-            });
-
-            L.marker([pos.lat, pos.lng], { icon: divIcon }).addTo(map)
-                .bindPopup(`<b>${walker.name}</b><br>${walker.distance} miles walked`);
-        });
-
         // Sort walkers by distance and display leaderboard
         const sortedWalkers = [...walkers].sort((a, b) => b.distance - a.distance);
         const walkerList = document.getElementById('walker-list');
@@ -286,7 +296,7 @@
                 <div class="walker-item" style="border-color: ${walker.color};">
                     <div class="walker-left">
                         <div class="position" style="background: ${posColor};">${idx + 1}</div>
-                        <div class="walker-icon">${walker.icon}</div>
+                        <div class="walker-icon"><i class="${walker.icon}"></i></div>
                         <div>
                             <div class="walker-name">${walker.name}</div>
                             <div class="walker-checkpoint">Next: ${nextCheckpoint}</div>
