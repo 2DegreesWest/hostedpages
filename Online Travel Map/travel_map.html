@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Travel Map - My Visited Locations</title>
+  
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  
+  <!-- Font Awesome for icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  
+  <!-- Plotly.js for charts -->
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+  
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      height: 100vh;
+      overflow: hidden;
+    }
+    
+    #map {
+      width: 100%;
+      height: 100vh;
+    }
+    
+    .control-panel {
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      z-index: 1000;
+      background: white;
+      padding: 15px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+      max-width: 300px;
+    }
+    
+    .control-panel h3 {
+      margin-bottom: 10px;
+      font-size: 16px;
+      color: #333;
+    }
+    
+    .control-button {
+      display: block;
+      width: 100%;
+      padding: 10px;
+      margin: 5px 0;
+      background: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background 0.3s;
+    }
+    
+    .control-button:hover {
+      background: #45a049;
+    }
+    
+    .control-button.chart-btn {
+      background: #2196F3;
+    }
+    
+    .control-button.chart-btn:hover {
+      background: #0b7dda;
+    }
+    
+    .control-button.list-btn {
+      background: #FF9800;
+    }
+    
+    .control-button.list-btn:hover {
+      background: #e68900;
+    }
+    
+    .custom-icon {
+      background: transparent;
+      border: none;
+    }
+    
+    .custom-icon i {
+      font-size: 24px;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+    }
+    
+    .popup-photo {
+      max-width: 300px;
+      max-height: 300px;
+      margin: 10px 0;
+      border-radius: 4px;
+    }
+    
+    .popup-content {
+      max-width: 350px;
+    }
+    
+    .popup-content h4 {
+      margin: 5px 0;
+      color: #333;
+    }
+    
+    .popup-content p {
+      margin: 5px 0;
+      color: #666;
+    }
+    
+    /* Modal styles */
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 2000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0,0,0,0.7);
+    }
+    
+    .modal-content {
+      background-color: #fefefe;
+      margin: 5% auto;
+      padding: 20px;
+      border: 1px solid #888;
+      border-radius: 8px;
+      width: 90%;
+      max-width: 800px;
+      max-height: 85vh;
+      overflow-y: auto;
+    }
+    
+    .close {
+      color: #aaa;
+      float: right;
+      font-size: 28px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    
+    .close:hover,
+    .close:focus {
+      color: black;
+    }
+    
+    #chart-container {
+      width: 100%;
+      height: 600px;
+    }
+    
+    .trip-list {
+      list-style: none;
+      padding: 0;
+    }
+    
+    .trip-item {
+      padding: 10px;
+      margin: 5px 0;
+      background: #f5f5f5;
+      border-radius: 4px;
+      border-left: 4px solid #4CAF50;
+    }
+    
+    .trip-item h4 {
+      margin: 0 0 5px 0;
+      color: #333;
+    }
+    
+    .trip-item .trip-details {
+      font-size: 14px;
+      color: #666;
+    }
+    
+    .trip-item .trip-score {
+      float: right;
+      font-weight: bold;
+      color: #4CAF50;
+      font-size: 18px;
+    }
+    
+    .score-badge {
+      display: inline-block;
+      padding: 3px 8px;
+      background: #4CAF50;
+      color: white;
+      border-radius: 12px;
+      font-size: 12px;
+      margin-left: 5px;
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  
+  <div class="control-panel">
+    <h3>Controls</h3>
+    <button class="control-button chart-btn" onclick="showChart()">
+      <i class="fas fa-chart-pie"></i> Show Chart
+    </button>
+    <button class="control-button list-btn" onclick="showTripList()">
+      <i class="fas fa-list"></i> Show Trip List (by Score)
+    </button>
+  </div>
+  
+  <!-- Chart Modal -->
+  <div id="chartModal" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="closeChart()">&times;</span>
+      <h2>Travel Statistics - Sunburst Chart</h2>
+      <div id="chart-container"></div>
+    </div>
+  </div>
+  
+  <!-- Trip List Modal -->
+  <div id="listModal" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="closeList()">&times;</span>
+      <h2>Trip List (Sorted by Score)</h2>
+      <ul id="trip-list" class="trip-list"></ul>
+    </div>
+  </div>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  
+  <script>
+    // Initialize map
+    var map = L.map('map').setView([20, 0], 2);
+    
+    // Add base layers
+    var osmBasemap = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      maxZoom: 19
+    });
+    
+    var darkBasemap = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+      subdomains: 'abcd',
+      maxZoom: 19
+    });
+    
+    var aerialBasemap = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+      attribution: '&copy; <a href="https://www.esri.com/">Esri</a>'
+    });
+    
+    // Add default basemap (OpenStreetMap)
+    osmBasemap.addTo(map);
+    
+    var basemaps = {
+      "OpenStreetMap": osmBasemap,
+      "Dark Map": darkBasemap,
+      "Aerial Imagery": aerialBasemap
+    };
+    
+    // Store GeoJSON data globally
+    var geojsonData = null;
+    var layers = {};
+    var markers = [];
+    
+    // Icon configuration for different holiday types
+    var iconConfig = {
+      'City': { icon: 'fas fa-city', color: '#3498db' },
+      'Snowboarding': { icon: 'fas fa-snowboarding', color: '#e74c3c' },
+      'Rural': { icon: 'fas fa-tree', color: '#27ae60' },
+      'Explore': { icon: 'fas fa-magnifying-glass', color: '#f39c12' },
+      'House': { icon: 'fas fa-house', color: '#9b59b6' },
+      'Globe': { icon: 'fas fa-globe', color: '#1abc9c' },
+      'Flag': { icon: 'fas fa-flag', color: '#e67e22' },
+      'Football': { icon: 'fas fa-futbol', color: '#16a085' },
+      'Ski': { icon: 'fas fa-skiing', color: '#c0392b' },
+      'Beach': { icon: 'fas fa-umbrella-beach', color: '#f1c40f' },
+      'Mountain': { icon: 'fas fa-mountain', color: '#34495e' },
+      'default': { icon: 'fas fa-map-marker-alt', color: '#95a5a6' }
+    };
+    
+    // Function to create custom icon
+    function createIcon(type) {
+      var config = iconConfig[type] || iconConfig['default'];
+      return L.divIcon({
+        className: 'custom-icon',
+        html: '<i class="' + config.icon + '" style="color: ' + config.color + ';"></i>',
+        iconSize: [30, 30],
+        iconAnchor: [15, 15]
+      });
+    }
+    
+    // Function to create popup content
+    function createPopupContent(feature) {
+      var props = feature.properties;
+      var content = '<div class="popup-content">';
+      content += '<h4>' + (props.Name || 'Unnamed Location') + '</h4>';
+      
+      if (props.Location) {
+        content += '<p><b>Location:</b> ' + props.Location + '</p>';
+      }
+      if (props.Country) {
+        content += '<p><b>Country:</b> ' + props.Country + '</p>';
+      }
+      if (props.Continent) {
+        content += '<p><b>Continent:</b> ' + props.Continent + '</p>';
+      }
+      if (props.Year) {
+        var year = new Date(props.Year).getFullYear();
+        content += '<p><b>Year:</b> ' + year + '</p>';
+      }
+      if (props.Year_2 && !isNaN(props.Year_2)) {
+        var year2 = new Date(props.Year_2).getFullYear();
+        content += '<p><b>Additional Year:</b> ' + year2 + '</p>';
+      }
+      if (props.Type) {
+        content += '<p><b>Type:</b> ' + props.Type + '</p>';
+      }
+      if (props.Score !== undefined && props.Score !== null) {
+        content += '<p><b>Score:</b> <span class="score-badge">' + props.Score + '</span></p>';
+      }
+      if (props.Notes && props.Notes !== "N/A") {
+        content += '<p><b>Notes:</b> ' + props.Notes + '</p>';
+      }
+      
+      // Add photo if available
+      if (props.Photo) {
+        var photoPath = 'photos/' + props.Photo;
+        content += '<img src="' + photoPath + '" alt="' + (props.Name || 'Photo') + '" class="popup-photo" onerror="this.style.display=\'none\'">';
+      }
+      
+      content += '</div>';
+      return content;
+    }
+    
+    // Load GeoJSON data
+    function loadGeoJSON() {
+      fetch('travel_data.geojson')
+        .then(response => response.json())
+        .then(data => {
+          geojsonData = data;
+          processGeoJSON(data);
+        })
+        .catch(error => {
+          console.error('Error loading GeoJSON:', error);
+          alert('Error loading travel data. Please ensure travel_data.geojson exists.');
+        });
+    }
+    
+    // Process GeoJSON and add to map
+    function processGeoJSON(data) {
+      // Clear existing layers
+      Object.keys(layers).forEach(key => {
+        map.removeLayer(layers[key]);
+      });
+      layers = {};
+      markers = [];
+      
+      // Group features by type
+      data.features.forEach(function(feature) {
+        var type = feature.properties.Type || 'default';
+        
+        // Create layer group if it doesn't exist
+        if (!layers[type]) {
+          layers[type] = L.layerGroup();
+        }
+        
+        // Create marker with custom icon
+        var icon = createIcon(type);
+        var coords = feature.geometry.coordinates;
+        var marker = L.marker([coords[1], coords[0]], { icon: icon })
+          .bindPopup(createPopupContent(feature));
+        
+        marker.feature = feature; // Store feature data with marker
+        marker.addTo(layers[type]);
+        markers.push(marker);
+      });
+      
+      // Add all layers to map
+      Object.keys(layers).forEach(key => {
+        layers[key].addTo(map);
+      });
+      
+      // Add layer control
+      var layerControl = L.control.layers(basemaps, layers, {
+        collapsed: false,
+        position: 'topleft'
+      }).addTo(map);
+      
+      // Fit map to bounds
+      if (markers.length > 0) {
+        var group = new L.featureGroup(markers);
+        map.fitBounds(group.getBounds().pad(0.1));
+      }
+    }
+    
+    // Show sunburst chart
+    function showChart() {
+      if (!geojsonData) {
+        alert('Please wait for data to load.');
+        return;
+      }
+      
+      // Build hierarchy data for sunburst chart
+      var hierarchy = {};
+      
+      geojsonData.features.forEach(function(feature) {
+        var props = feature.properties;
+        var continent = props.Continent || 'Unknown';
+        var country = props.Country || 'Unknown';
+        var location = props.Location || 'Unknown';
+        
+        if (!hierarchy[continent]) {
+          hierarchy[continent] = {};
+        }
+        if (!hierarchy[continent][country]) {
+          hierarchy[continent][country] = {};
+        }
+        if (!hierarchy[continent][country][location]) {
+          hierarchy[continent][country][location] = 0;
+        }
+        hierarchy[continent][country][location]++;
+      });
+      
+      // Convert to Plotly format
+      var labels = [];
+      var parents = [];
+      var values = [];
+      
+      // Add continents
+      Object.keys(hierarchy).forEach(function(continent) {
+        var continentCount = 0;
+        Object.keys(hierarchy[continent]).forEach(function(country) {
+          Object.keys(hierarchy[continent][country]).forEach(function(location) {
+            continentCount += hierarchy[continent][country][location];
+          });
+        });
+        
+        labels.push(continent);
+        parents.push('');
+        values.push(continentCount);
+        
+        // Add countries
+        Object.keys(hierarchy[continent]).forEach(function(country) {
+          var countryCount = 0;
+          Object.keys(hierarchy[continent][country]).forEach(function(location) {
+            countryCount += hierarchy[continent][country][location];
+          });
+          
+          labels.push(country);
+          parents.push(continent);
+          values.push(countryCount);
+          
+          // Add locations
+          Object.keys(hierarchy[continent][country]).forEach(function(location) {
+            labels.push(location);
+            parents.push(country);
+            values.push(hierarchy[continent][country][location]);
+          });
+        });
+      });
+      
+      var data = [{
+        type: 'sunburst',
+        labels: labels,
+        parents: parents,
+        values: values,
+        branchvalues: 'total',
+        hovertemplate: '<b>%{label}</b><br>Visits: %{value}<extra></extra>',
+        maxdepth: 3
+      }];
+      
+      var layout = {
+        title: 'Travel Destinations by Continent, Country, and Location',
+        margin: { l: 0, r: 0, b: 0, t: 40 }
+      };
+      
+      Plotly.newPlot('chart-container', data, layout, {responsive: true});
+      document.getElementById('chartModal').style.display = 'block';
+    }
+    
+    // Close chart modal
+    function closeChart() {
+      document.getElementById('chartModal').style.display = 'none';
+    }
+    
+    // Show trip list sorted by score
+    function showTripList() {
+      if (!geojsonData) {
+        alert('Please wait for data to load.');
+        return;
+      }
+      
+      var trips = geojsonData.features.map(function(feature) {
+        return {
+          name: feature.properties.Name || 'Unnamed',
+          location: feature.properties.Location || '',
+          country: feature.properties.Country || '',
+          continent: feature.properties.Continent || '',
+          type: feature.properties.Type || '',
+          year: feature.properties.Year ? new Date(feature.properties.Year).getFullYear() : '',
+          year2: feature.properties.Year_2 && !isNaN(feature.properties.Year_2) ? 
+                 new Date(feature.properties.Year_2).getFullYear() : null,
+          score: feature.properties.Score !== undefined && feature.properties.Score !== null ? 
+                 parseFloat(feature.properties.Score) : 0,
+          notes: feature.properties.Notes || '',
+          coords: feature.geometry.coordinates
+        };
+      });
+      
+      // Sort by score (descending)
+      trips.sort(function(a, b) {
+        return b.score - a.score;
+      });
+      
+      // Display in modal
+      var listHtml = '';
+      trips.forEach(function(trip) {
+        listHtml += '<li class="trip-item">';
+        listHtml += '<span class="trip-score">' + trip.score.toFixed(1) + '</span>';
+        listHtml += '<h4>' + trip.name + '</h4>';
+        listHtml += '<div class="trip-details">';
+        if (trip.location) listHtml += trip.location + ', ';
+        if (trip.country) listHtml += trip.country;
+        if (trip.continent) listHtml += ' (' + trip.continent + ')';
+        if (trip.year) {
+          listHtml += ' - ' + trip.year;
+          if (trip.year2) listHtml += '/' + trip.year2;
+        }
+        if (trip.type) listHtml += ' [' + trip.type + ']';
+        listHtml += '</div>';
+        if (trip.notes && trip.notes !== 'N/A') {
+          listHtml += '<div class="trip-details" style="font-style: italic; margin-top: 5px;">' + trip.notes + '</div>';
+        }
+        listHtml += '</li>';
+      });
+      
+      document.getElementById('trip-list').innerHTML = listHtml;
+      document.getElementById('listModal').style.display = 'block';
+    }
+    
+    // Close list modal
+    function closeList() {
+      document.getElementById('listModal').style.display = 'none';
+    }
+    
+    // Close modals when clicking outside
+    window.onclick = function(event) {
+      var chartModal = document.getElementById('chartModal');
+      var listModal = document.getElementById('listModal');
+      if (event.target == chartModal) {
+        chartModal.style.display = 'none';
+      }
+      if (event.target == listModal) {
+        listModal.style.display = 'none';
+      }
+    }
+    
+    // Error handling for tile loading
+    map.on('tileerror', function(error, tile) {
+      console.warn('Tile loading error:', error);
+    });
+    
+    // Load data on page load
+    loadGeoJSON();
+  </script>
+</body>
+</html>
