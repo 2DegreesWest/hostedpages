@@ -478,8 +478,13 @@
         margin: { l: 0, r: 0, b: 0, t: 40 }
       };
       
-      Plotly.newPlot('chart-container', data, layout, {responsive: true});
+      // Show modal first so chart container has dimensions (Plotly needs visible container)
       document.getElementById('chartModal').style.display = 'block';
+      var chartEl = document.getElementById('chart-container');
+      // Use requestAnimationFrame so layout is computed before Plotly runs
+      requestAnimationFrame(function() {
+        Plotly.newPlot(chartEl, data, layout, {responsive: true});
+      });
     }
     
     // Close chart modal
