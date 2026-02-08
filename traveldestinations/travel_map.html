@@ -404,7 +404,7 @@
         return;
       }
       
-      // Build hierarchy data for sunburst chart
+      // Build hierarchy data for sunburst chart (with unique ids for repeated labels)
       var hierarchy = {};
       
       geojsonData.features.forEach(function(feature) {
@@ -425,12 +425,12 @@
         hierarchy[continent][country][location]++;
       });
       
-      // Convert to Plotly format
+      // Convert to Plotly format with unique ids (required when labels repeat)
       var labels = [];
+      var ids = [];
       var parents = [];
       var values = [];
       
-      // Add continents
       Object.keys(hierarchy).forEach(function(continent) {
         var continentCount = 0;
         Object.keys(hierarchy[continent]).forEach(function(country) {
@@ -439,32 +439,42 @@
           });
         });
         
+        var continentId = continent;
         labels.push(continent);
+        ids.push(continentId);
         parents.push('');
         values.push(continentCount);
         
-        // Add countries
         Object.keys(hierarchy[continent]).forEach(function(country) {
           var countryCount = 0;
           Object.keys(hierarchy[continent][country]).forEach(function(location) {
             countryCount += hierarchy[continent][country][location];
           });
           
+          var countryId = continentId + '|' + country;
           labels.push(country);
-          parents.push(continent);
+          ids.push(countryId);
+          parents.push(continentId);
           values.push(countryCount);
           
-          // Add locations
           Object.keys(hierarchy[continent][country]).forEach(function(location) {
+            var locationId = countryId + '|' + location;
             labels.push(location);
-            parents.push(country);
+            ids.push(locationId);
+            parents.push(countryId);
             values.push(hierarchy[continent][country][location]);
           });
         });
       });
       
+      if (labels.length === 0) {
+        alert('No data to display in chart.');
+        return;
+      }
+      
       var data = [{
         type: 'sunburst',
+        ids: ids,
         labels: labels,
         parents: parents,
         values: values,
@@ -473,18 +483,29 @@
         maxdepth: 3
       }];
       
+      var chartEl = document.getElementById('chart-container');
+      // Show modal first so container has dimensions
+      document.getElementById('chartModal').style.display = 'block';
+      // Explicit size so Plotly always has dimensions (avoids blank when modal was hidden)
+      var w = chartEl.offsetWidth || 760;
+      var h = chartEl.offsetHeight || 600;
+      
       var layout = {
         title: 'Travel Destinations by Continent, Country, and Location',
-        margin: { l: 0, r: 0, b: 0, t: 40 }
+        margin: { l: 0, r: 0, b: 0, t: 40 },
+        width: w,
+        height: h,
+        autosize: false
       };
       
-      // Show modal first so chart container has dimensions (Plotly needs visible container)
-      document.getElementById('chartModal').style.display = 'block';
-      var chartEl = document.getElementById('chart-container');
-      // Use requestAnimationFrame so layout is computed before Plotly runs
-      requestAnimationFrame(function() {
+      Plotly.purge(chartEl);
+      setTimeout(function() {
+        w = chartEl.offsetWidth || 760;
+        h = chartEl.offsetHeight || 600;
+        layout.width = w;
+        layout.height = h;
         Plotly.newPlot(chartEl, data, layout, {responsive: true});
-      });
+      }, 80);
     }
     
     // Close chart modal
