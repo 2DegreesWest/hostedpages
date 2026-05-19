@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Travel Diary</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css">
+  <link rel="stylesheet" href="css/travel-diary.css">
+</head>
+<body>
+  <header class="app-header">
+    <h1 class="app-title">Travel Diary <span>— my journeys</span></h1>
+    <nav class="nav-tabs" aria-label="Views">
+      <button type="button" class="nav-btn active" id="nav-map" data-view="map">Map</button>
+      <button type="button" class="nav-btn" id="nav-sunburst" data-view="sunburst">Sunburst</button>
+      <button type="button" class="nav-btn" id="nav-rank" data-view="rank">Rankings</button>
+    </nav>
+  </header>
+
+  <main class="app-main">
+    <section id="view-map" class="view active" aria-label="Map">
+      <div id="map"></div>
+      <aside class="map-panel basemap-panel" aria-label="Basemap">
+        <h3>Basemap</h3>
+        <div id="basemap-options"></div>
+      </aside>
+      <aside class="map-panel legend-panel" aria-label="Categories">
+        <h3>Categories</h3>
+        <div id="legend-items"></div>
+      </aside>
+    </section>
+
+    <section id="view-sunburst" class="view chart-view" aria-label="Sunburst chart">
+      <p class="chart-toolbar" style="margin:0;border:none;background:transparent;padding:0 0.25rem;color:var(--muted);font-size:0.85rem;">
+        Countries visited (centre) → continent → country. Segment size uses <strong>Total Visits</strong>; hover a country for its <strong>Feature</strong> notes.
+      </p>
+      <div class="chart-container">
+        <div id="sunburst-chart"></div>
+      </div>
+    </section>
+
+    <section id="view-rank" class="view chart-view" aria-label="Trip rankings">
+      <div class="chart-toolbar">
+        <label for="rank-type-filter">Filter by type</label>
+        <select id="rank-type-filter" aria-label="Filter trips by type">
+          <option value="all">All types</option>
+        </select>
+      </div>
+      <div id="rank-list" class="rank-list"></div>
+    </section>
+  </main>
+
+  <div id="loading-overlay" class="loading-overlay" role="status" aria-live="polite">
+    <div class="spinner" aria-hidden="true"></div>
+    <p>Loading travel data…</p>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.35.2/plotly.min.js"></script>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+  <script src="js/travel-diary.js"></script>
+</body>
+</html>
