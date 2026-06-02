@@ -62,6 +62,9 @@ const BASEMAPS = {
   },
 };
 
+const PHOTO_DIRS = ["photos/", "photo/"];
+const PHOTO_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
+
 const state = {
   map: null,
   basemapLayer: null,
@@ -70,6 +73,85 @@ const state = {
   sunburstRows: [],
   rankRows: [],
   activeView: "map",
+  photoManifest: {},
+};
+
+function isValidPhotoValue(value) {
+  if (value == null) return false;
+  const s = String(value).trim();
+  return s !== "" && s.toLowerCase() !== "null";
+}
+
+function photoBasename(value) {
+  const name = String(value).trim().replace(/\\/g, "/");
+  return name.includes("/") ? name.split("/").pop() : name;
+}
+
+function pathsForFilename(filename) {
+  const base = photoBasename(filename);
+  if (!base) return [];
+  const hasExt = /\.[a-z0-9]+$/i.test(base);
+  const names = hasExt ? [base] : PHOTO_EXTENSIONS.map((ext) => base + ext);
+  const paths = [];
+  for (const dir of PHOTO_DIRS) {
+    for (const name of names) {
+      paths.push(dir + name);
+    }
+  }
+  return paths;
+}
+
+function getPhotoCandidates(props) {
+  const seen = new Set();
+  const add = (filename) => {
+    for (const path of pathsForFilename(filename)) {
+      if (!seen.has(path)) {
+        seen.add(path);
+      }
+    }
+  };
+
+  if (isValidPhotoValue(props.Photo)) add(props.Photo);
+
+  const oid = props.OBJECTID ?? props.objectid;
+  if (oid != null && state.photoManifest[String(oid)]) {
+    add(state.photoManifest[String(oid)]);
+  }
+
+  if (props.Country && state.photoManifest[props.Country]) {
+    add(state.photoManifest[props.Country]);
+  }
+
+  if (oid != null) add(String(oid));
+  if (isValidPhotoValue(props.Country)) add(props.Country);
+  if (isValidPhotoValue(props.Name)) add(props.Name);
+
+  return [...seen];
+}
+
+async function loadPhotoManifest() {
+  for (const dir of PHOTO_DIRS) {
+    try {
+      const res = await fetch(dir + "manifest.json");
+      if (!res.ok) continue;
+      const data = await res.json();
+      Object.assign(state.photoManifest, data);
+      return;
+    } catch {
+      /* try next folder */
+    }
+  }
+}
+
+window.tryNextPopupPhoto = function tryNextPopupPhoto(img) {
+  const list = JSON.parse(img.getAttribute("data-photo-list") || "[]");
+  let idx = Number(img.dataset.photoIdx || 0) + 1;
+  if (idx < list.length) {
+    img.dataset.photoIdx = String(idx);
+    img.src = list[idx];
+  } else {
+    img.remove();
+  }
 };
 
 function $(id) {
@@ -138,10 +220,11 @@ function buildPopupHtml(props) {
   add("Trip highlights", props.TripHighlights);
   add("Notes", props.Notes);
 
+  const photoCandidates = getPhotoCandidates(props);
   let photoHtml = "";
-  if (props.Photo) {
-    const src = props.Photo.includes("/") ? props.Photo : DATA.photosDir + props.Photo;
-    photoHtml = `<img class="popup-photo" src="${escapeHtml(src)}" alt="" loading="lazy">`;
+  if (photoCandidates.length) {
+    const listAttr = JSON.stringify(photoCandidates).replace(/'/g, "&#39;");
+    photoHtml = `<img class="popup-photo" src="${escapeHtml(photoCandidates[0])}" data-photo-idx="0" data-photo-list='${listAttr}' alt="" loading="lazy" onerror="tryNextPopupPhoto(this)">`;
   }
 
   return photoHtml + lines.join("<br>");
@@ -153,20 +236,23 @@ function initMap(geojson) {
   state.map = L.map("map", {
     center: [28.88, -3.41],
     zoom: 2,
-    zoomControl: true,
+    zoomControl: false,
+    scrollWheelZoom: true,
+    touchZoom: true,
+    doubleClickZoom: true,
+    boxZoom: true,
+    keyboard: true,
     preferCanvas: true,
   });
+
+  L.control.zoom({ position: "topright" }).addTo(state.map);
 
   setBasemap("dark");
 
   const types = [...new Set(geojson.features.map((f) => f.properties.Type).filter(Boolean))].sort();
 
   types.forEach((type) => {
-    const group = L.markerClusterGroup({
-      showCoverageOnHover: false,
-      maxClusterRadius: 45,
-      spiderfyOnMaxZoom: true,
-    });
+    const group = L.layerGroup();
     state.layerGroups[type] = group;
     state.map.addLayer(group);
   });
@@ -175,10 +261,7 @@ function initMap(geojson) {
     const props = feature.properties || {};
     const type = props.Type || "Other";
     if (!state.layerGroups[type]) {
-      state.layerGroups[type] = L.markerClusterGroup({
-        showCoverageOnHover: false,
-        maxClusterRadius: 45,
-      });
+      state.layerGroups[type] = L.layerGroup();
       state.map.addLayer(state.layerGroups[type]);
     }
 
@@ -195,6 +278,11 @@ function initMap(geojson) {
 
   buildLegend(types);
   buildBasemapControl();
+
+  if (window.matchMedia("(max-width: 640px)").matches) {
+    const legendDetails = document.querySelector(".legend-panel .panel-details");
+    if (legendDetails) legendDetails.removeAttribute("open");
+  }
 }
 
 function setBasemap(key) {
@@ -244,14 +332,13 @@ function buildLegend(types) {
 }
 
 function buildSunburstData(rows) {
-  const rootLabel = "Countries visited";
-  const ids = [rootLabel];
-  const labels = [rootLabel];
+  const rootId = "root";
+  const ids = [rootId];
+  const labels = [""];
   const parents = [""];
   const values = [0];
   const colors = ["#FF6692"];
-  const customdata = [[""]];
-  const featuresByCountry = {};
+  const customdata = [""];
 
   rows.forEach((row) => {
     const continent = normalizeKey(row, "Continent");
@@ -260,16 +347,14 @@ function buildSunburstData(rows) {
     const feature = normalizeKey(row, "Feature") || "";
     if (!continent || !country) return;
 
-    featuresByCountry[country] = feature;
-
-    const contId = `${rootLabel}/${continent}`;
+    const contId = `${rootId}/${continent}`;
     if (!ids.includes(contId)) {
       ids.push(contId);
       labels.push(continent);
-      parents.push(rootLabel);
+      parents.push(rootId);
       values.push(0);
       colors.push(CONTINENT_COLORS[continent] || "#888888");
-      customdata.push([""]);
+      customdata.push("");
     }
 
     const countryId = `${contId}/${country}`;
@@ -277,9 +362,9 @@ function buildSunburstData(rows) {
       ids.push(countryId);
       labels.push(country);
       parents.push(contId);
-      values.push(visits);
+      values.push(Math.max(visits, 0.1));
       colors.push(CONTINENT_COLORS[continent] || "#888888");
-      customdata.push([feature]);
+      customdata.push(feature);
     } else {
       const idx = ids.indexOf(countryId);
       values[idx] += visits;
@@ -287,30 +372,45 @@ function buildSunburstData(rows) {
   });
 
   const countryCount = ids.filter((id) => id.split("/").length === 3).length;
-  values[0] = countryCount;
-  labels[0] = `${countryCount} countries`;
 
   ids.forEach((id, i) => {
-    if (id === rootLabel || id.split("/").length !== 2) return;
+    if (id === rootId || id.split("/").length !== 2) return;
     const childSum = ids.reduce((sum, cid, j) => {
       if (parents[j] === id && cid.split("/").length === 3) return sum + values[j];
       return sum;
     }, 0);
-    if (childSum > 0) values[i] = childSum;
+    values[i] = childSum;
   });
+
+  const totalVisits = ids.reduce((sum, id, i) => {
+    if (id.split("/").length === 3) return sum + values[i];
+    return sum;
+  }, 0);
+
+  values[0] = totalVisits || countryCount;
+  labels[0] = `${countryCount} countries`;
 
   return { ids, labels, parents, values, colors, customdata, countryCount };
 }
 
 function renderSunburst() {
   const el = $("sunburst-chart");
+  if (!el) return;
+
   if (!state.sunburstRows.length) {
-    el.innerHTML = "<p style='padding:1rem;color:#9aa8bc'>No Sunburst sheet data found.</p>";
+    el.innerHTML =
+      "<p style='padding:1rem;color:#9aa8bc'>No Sunburst sheet data found.</p>";
     return;
   }
 
   const { ids, labels, parents, values, colors, customdata, countryCount } =
     buildSunburstData(state.sunburstRows);
+
+  if (ids.length < 2) {
+    el.innerHTML =
+      "<p style='padding:1rem;color:#9aa8bc'>Not enough Sunburst data to chart.</p>";
+    return;
+  }
 
   const trace = {
     type: "sunburst",
@@ -329,17 +429,26 @@ function renderSunburst() {
   };
 
   const layout = {
-    margin: { l: 8, r: 8, t: 40, b: 8 },
+    margin: { l: 8, r: 8, t: 48, b: 8 },
     paper_bgcolor: "#1a2332",
     plot_bgcolor: "#1a2332",
     font: { color: "#e8eef5", size: 12 },
     title: {
-      text: `Travel destinations (${countryCount} countries)`,
-      font: { size: 16 },
+      text: `My travel destinations (${countryCount} countries)`,
+      font: { size: 16, color: "#e8eef5" },
     },
+    autosize: true,
   };
 
-  Plotly.newPlot(el, [trace], layout, { responsive: true, displayModeBar: false });
+  const config = { responsive: true, displayModeBar: false };
+  const drawn =
+    el.data && el.data.length > 0
+      ? Plotly.react(el, [trace], layout, config)
+      : Plotly.newPlot(el, [trace], layout, config);
+
+  const resize = () => Plotly.Plots.resize(el);
+  if (drawn && typeof drawn.then === "function") drawn.then(resize);
+  else setTimeout(resize, 50);
 }
 
 function renderRankList(filterType) {
@@ -408,14 +517,24 @@ function switchView(viewId) {
   state.activeView = viewId;
   document.querySelectorAll(".view").forEach((v) => v.classList.remove("active"));
   document.querySelectorAll(".nav-btn").forEach((b) => b.classList.remove("active"));
-  $(`view-${viewId}`).classList.add("active");
-  $(`nav-${viewId}`).classList.add("active");
+
+  const viewEl = document.getElementById(`view-${viewId}`);
+  const navEl = document.getElementById(`nav-${viewId}`);
+  if (viewEl) viewEl.classList.add("active");
+  if (navEl) navEl.classList.add("active");
 
   if (viewId === "map" && state.map) {
-    setTimeout(() => state.map.invalidateSize(), 100);
+    requestAnimationFrame(() => {
+      state.map.invalidateSize();
+      if (state.map.scrollWheelZoom && state.map.scrollWheelZoom.enable) {
+        state.map.scrollWheelZoom.enable();
+      }
+    });
   }
   if (viewId === "sunburst") {
-    setTimeout(renderSunburst, 50);
+    requestAnimationFrame(() => {
+      requestAnimationFrame(renderSunburst);
+    });
   }
   if (viewId === "rank") {
     renderRankList($("rank-type-filter").value || "all");
@@ -435,15 +554,34 @@ async function init() {
   });
 
   try {
-    const [geojson, workbook] = await Promise.all([loadGeoJSON(), loadWorkbook()]);
+    const [geojson, workbook] = await Promise.all([
+      loadGeoJSON(),
+      loadWorkbook(),
+      loadPhotoManifest(),
+    ]);
 
-    state.sunburstRows = sheetToRows(workbook, "Sunburst");
-    state.rankRows = sheetToRows(workbook, "Rank");
+    state.sunburstRows = sheetToRows(workbook, "Sunburst").filter((row) => {
+      const continent = normalizeKey(row, "Continent");
+      return continent && String(continent).toLowerCase() !== "continent";
+    });
+    state.rankRows = sheetToRows(workbook, "Rank").filter((row) => {
+      const country = normalizeKey(row, "Country");
+      return country && String(country).toLowerCase() !== "country";
+    });
 
     initMap(geojson);
     buildRankFilter();
+    renderRankList("all");
 
     $("loading-overlay").classList.add("hidden");
+
+    window.addEventListener("resize", () => {
+      if (state.map) state.map.invalidateSize();
+      const chart = $("sunburst-chart");
+      if (chart && chart.querySelector(".plotly") && state.activeView === "sunburst") {
+        Plotly.Plots.resize(chart);
+      }
+    });
   } catch (err) {
     console.error(err);
     showError(

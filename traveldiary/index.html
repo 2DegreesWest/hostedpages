@@ -2,11 +2,9 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Travel Diary</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.css">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css">
   <link rel="stylesheet" href="css/travel-diary.css">
 </head>
@@ -24,17 +22,21 @@
     <section id="view-map" class="view active" aria-label="Map">
       <div id="map"></div>
       <aside class="map-panel basemap-panel" aria-label="Basemap">
-        <h3>Basemap</h3>
-        <div id="basemap-options"></div>
+        <details class="panel-details" open>
+          <summary>Basemap</summary>
+          <div id="basemap-options"></div>
+        </details>
       </aside>
       <aside class="map-panel legend-panel" aria-label="Categories">
-        <h3>Categories</h3>
-        <div id="legend-items"></div>
+        <details class="panel-details" open>
+          <summary>Categories</summary>
+          <div id="legend-items"></div>
+        </details>
       </aside>
     </section>
 
     <section id="view-sunburst" class="view chart-view" aria-label="Sunburst chart">
-      <p class="chart-toolbar" style="margin:0;border:none;background:transparent;padding:0 0.25rem;color:var(--muted);font-size:0.85rem;">
+      <p class="chart-intro">
         Countries visited (centre) → continent → country. Segment size uses <strong>Total Visits</strong>; hover a country for its <strong>Feature</strong> notes.
       </p>
       <div class="chart-container">
@@ -59,7 +61,6 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.35.2/plotly.min.js"></script>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
   <script src="js/travel-diary.js"></script>

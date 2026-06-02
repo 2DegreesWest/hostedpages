@@ -22,6 +22,7 @@ html,
 body {
   margin: 0;
   height: 100%;
+  min-height: 100dvh;
   font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
   background: var(--bg);
   color: var(--text);
@@ -93,48 +94,106 @@ body {
   position: absolute;
   inset: 0;
   display: none;
+  visibility: hidden;
+  pointer-events: none;
+  z-index: 0;
 }
 
 .view.active {
   display: block;
+  visibility: visible;
+  pointer-events: auto;
+  z-index: 2;
+}
+
+.view.chart-view.active {
+  display: flex;
+  flex-direction: column;
 }
 
 #map {
   width: 100%;
   height: 100%;
   background: #1a1a2e;
+  z-index: 1;
+  touch-action: none;
 }
 
 .leaflet-container {
   font-family: inherit;
 }
 
+/* Zoom +/- top-right; basemap stays top-left */
+.leaflet-top.leaflet-right {
+  margin-top: max(0.5rem, env(safe-area-inset-top, 0px));
+  margin-right: max(0.5rem, env(safe-area-inset-right, 0px));
+}
+
+.leaflet-bottom.leaflet-right {
+  margin-bottom: max(0.35rem, env(safe-area-inset-bottom, 0px));
+  margin-right: max(0.35rem, env(safe-area-inset-right, 0px));
+}
+
 .map-panel {
   position: absolute;
   z-index: 800;
+  pointer-events: none;
   background: rgba(26, 35, 50, 0.94);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
   backdrop-filter: blur(8px);
-  max-height: calc(100% - 1.5rem);
-  overflow: auto;
+  max-height: min(42vh, calc(100% - 5.5rem));
+  overflow: hidden;
 }
 
-.map-panel h3 {
+.panel-details {
+  pointer-events: auto;
+}
+
+.panel-details summary {
   margin: 0;
-  padding: 0.65rem 0.85rem;
-  font-size: 0.75rem;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.72rem;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--muted);
   border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+.panel-details summary::-webkit-details-marker {
+  display: none;
+}
+
+.panel-details summary::after {
+  content: "▾";
+  float: right;
+  font-size: 0.65rem;
+  opacity: 0.7;
+}
+
+.panel-details:not([open]) summary::after {
+  content: "▸";
+}
+
+.panel-details:not([open]) summary {
+  border-bottom: none;
+}
+
+.map-panel label,
+.map-panel input,
+.map-panel .legend-item {
+  pointer-events: auto;
 }
 
 .basemap-panel {
-  top: 0.75rem;
-  left: 0.75rem;
-  width: min(11rem, calc(100vw - 1.5rem));
+  top: max(0.65rem, env(safe-area-inset-top, 0px));
+  left: max(0.65rem, env(safe-area-inset-left, 0px));
+  width: min(10.5rem, calc(100vw - 5.5rem));
 }
 
 .basemap-panel label {
@@ -153,9 +212,16 @@ body {
 }
 
 .legend-panel {
-  bottom: 0.75rem;
-  left: 0.75rem;
-  width: min(13rem, calc(100vw - 1.5rem));
+  bottom: max(0.65rem, env(safe-area-inset-bottom, 0px));
+  left: max(0.65rem, env(safe-area-inset-left, 0px));
+  width: min(13rem, calc(100vw - 5.5rem));
+  max-height: min(36vh, calc(100% - 8rem));
+}
+
+.legend-panel .panel-details[open] #legend-items {
+  max-height: min(28vh, 14rem);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .legend-item {
@@ -183,11 +249,10 @@ body {
 }
 
 .chart-view {
-  display: flex;
-  flex-direction: column;
   height: 100%;
   padding: 0.75rem;
   gap: 0.75rem;
+  overflow: hidden;
 }
 
 .chart-toolbar {
@@ -224,10 +289,22 @@ body {
   overflow: hidden;
 }
 
-#sunburst-chart,
-#rank-chart {
+#sunburst-chart {
   width: 100%;
   height: 100%;
+  min-height: 320px;
+}
+
+.chart-intro {
+  flex-shrink: 0;
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+  line-height: 1.45;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
 }
 
 .rank-list {
@@ -348,10 +425,26 @@ body {
 
 .popup-photo {
   display: block;
-  max-width: 220px;
-  max-height: 160px;
+  width: 100%;
+  max-width: min(220px, 72vw);
+  max-height: min(160px, 40vh);
   border-radius: 0.35rem;
   margin-bottom: 0.5rem;
+  object-fit: cover;
+}
+
+.leaflet-popup-content-wrapper {
+  border-radius: var(--radius);
+}
+
+@media (min-width: 641px) {
+  .panel-details summary {
+    cursor: default;
+  }
+
+  .panel-details summary::after {
+    display: none;
+  }
 }
 
 .marker-icon-wrap {
@@ -371,48 +464,111 @@ body {
 
 @media (max-width: 640px) {
   .app-header {
+    flex: 0 0 auto;
     flex-wrap: wrap;
     height: auto;
     min-height: var(--header-h);
-    padding: 0.5rem 0.75rem;
+    padding: 0.5rem max(0.65rem, env(safe-area-inset-left, 0px));
+    padding-right: max(0.65rem, env(safe-area-inset-right, 0px));
+  }
+
+  .app-title {
+    font-size: 0.92rem;
+    flex: 1 1 100%;
+  }
+
+  .app-title span {
+    display: block;
+    font-size: 0.78rem;
   }
 
   .nav-tabs {
     width: 100%;
     margin-left: 0;
     justify-content: stretch;
+    gap: 0.25rem;
   }
 
   .nav-btn {
     flex: 1;
     text-align: center;
-    padding: 0.5rem 0.35rem;
-    font-size: 0.8rem;
+    padding: 0.55rem 0.25rem;
+    font-size: 0.78rem;
+    min-height: 2.5rem;
   }
 
   .basemap-panel {
-    top: 0.5rem;
-    right: 0.5rem;
-    left: auto;
-    width: min(9.5rem, 45vw);
-    max-height: 7.5rem;
+    top: max(0.45rem, env(safe-area-inset-top, 0px));
+    left: max(0.45rem, env(safe-area-inset-left, 0px));
+    width: min(9.25rem, calc(100vw - 4.5rem));
+    max-height: min(32vh, 11rem);
+  }
+
+  .basemap-panel .panel-details summary,
+  .legend-panel .panel-details summary {
+    padding: 0.45rem 0.6rem;
+    font-size: 0.68rem;
+  }
+
+  .basemap-panel label {
+    padding: 0.35rem 0.6rem;
+    font-size: 0.8rem;
   }
 
   .legend-panel {
-    bottom: 0.5rem;
-    left: 0.5rem;
-    right: auto;
-    width: min(12rem, 55vw);
-    max-height: 38vh;
+    bottom: max(1.75rem, calc(env(safe-area-inset-bottom, 0px) + 1.25rem));
+    left: max(0.45rem, env(safe-area-inset-left, 0px));
+    width: min(11.5rem, calc(100vw - 4.5rem));
+    max-height: min(32vh, 12rem);
+  }
+
+  .legend-panel .panel-details[open] #legend-items {
+    max-height: min(22vh, 9.5rem);
+  }
+
+  .legend-item {
+    padding: 0.35rem 0.6rem;
+    font-size: 0.8rem;
+  }
+
+  .marker-icon-wrap i {
+    font-size: 18px;
+  }
+
+  .chart-view {
+    padding: 0.5rem;
+    padding-left: max(0.5rem, env(safe-area-inset-left, 0px));
+    padding-right: max(0.5rem, env(safe-area-inset-right, 0px));
+  }
+
+  .chart-intro {
+    font-size: 0.8rem;
+    padding: 0.45rem 0.6rem;
+  }
+
+  #sunburst-chart {
+    min-height: min(280px, 55vh);
   }
 
   .rank-card {
     grid-template-columns: 2rem 1fr;
+    padding: 0.7rem 0.75rem;
   }
 
   .rank-card .rank-score {
     grid-column: 2;
     text-align: left;
     margin-top: -0.25rem;
+  }
+
+  .leaflet-popup-content {
+    font-size: 0.85rem;
+    max-width: min(280px, 85vw);
+  }
+}
+
+@media (max-width: 380px) {
+  .app-title span {
+    display: none;
   }
 }
