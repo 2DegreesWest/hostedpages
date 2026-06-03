@@ -13,7 +13,7 @@ const TYPE_STYLE = {
   City: { icon: "fa-city", color: "#d3d3d3" },
   Snowboarding: { icon: "fa-person-snowboarding", color: "#ffffff" },
   Rural: { icon: "fa-mountain-sun", color: "#90ee90" },
-  Explore: { icon: "fa-van-shuttle", color: "#ff69b4" },
+  Explore: { icon: "fa-van-shuttle", color: "#071E6E" },
   MapAction: { icon: "fa-globe", color: "#add8e6" },
   Lived: { icon: "fa-house", color: "#ff0000" },
   Relax: { icon: "fa-umbrella-beach", color: "#ffff00" },
@@ -217,8 +217,8 @@ function buildPopupHtml(props) {
   add("Type", props.Type);
   add("Date", props.Date);
   add("Notes", props.Notes);
-  if (props.Score != null && props.Score !== "") add("Score", props.Score);
   add("Trip highlights", props.TripHighlights);
+  if (props.Score != null && props.Score !== "") add("Score", props.Score);
   
 
   const photoCandidates = getPhotoCandidates(props);
