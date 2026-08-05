@@ -180,17 +180,33 @@ function sheetToRows(workbook, sheetName) {
   return XLSX.utils.sheet_to_json(sheet, { defval: null });
 }
 
+function fetchData(url) {
+  const cacheBust = `${url}${url.includes("?") ? "&" : "?"}t=${Date.now()}`;
+  return fetch(cacheBust, { cache: "no-store" });
+}
+
 async function loadWorkbook() {
-  const res = await fetch(DATA.spreadsheetUrl);
+  const res = await fetchData(DATA.spreadsheetUrl);
   if (!res.ok) throw new Error(`Could not load spreadsheet (${res.status})`);
   const buf = await res.arrayBuffer();
   return XLSX.read(buf, { type: "array" });
 }
 
 async function loadGeoJSON() {
-  const res = await fetch(DATA.geojsonUrl);
+  const res = await fetchData(DATA.geojsonUrl);
   if (!res.ok) throw new Error(`Could not load GeoJSON (${res.status})`);
   return res.json();
+}
+
+/** Read a property from GeoJSON, supporting renamed export fields. */
+function prop(props, ...names) {
+  for (const name of names) {
+    const val = props[name];
+    if (val != null && val !== "" && String(val).toLowerCase() !== "null") {
+      return val;
+    }
+  }
+  return null;
 }
 
 function createMarkerIcon(type) {
@@ -213,10 +229,10 @@ function buildPopupHtml(props) {
   };
   add("Country", props.Country);
   add("Location", props.Location);
-  add("Name", props.Name);
+  add("Name", prop(props, "Feature", "Name"));
   add("Type", props.Type);
   add("Date", props.Date);
-  add("Notes", props.Notes);
+  add("Notes", prop(props, "FeatureHighlights", "Notes"));
   add("Trip highlights", props.TripHighlights);
   if (props.Score != null && props.Score !== "") add("Score", props.Score);
   
@@ -569,6 +585,8 @@ async function init() {
       const country = normalizeKey(row, "Country");
       return country && String(country).toLowerCase() !== "country";
     });
+
+    console.info(`Travel Diary: loaded ${geojson.features.length} map locations`);
 
     initMap(geojson);
     buildRankFilter();
