@@ -2,32 +2,69 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>MapLibre Custom Style & GeoJSON Viewer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MapLibre Lightweight Vector App</title>
+
+  <!-- MapLibre GL JS CSS and JS -->
   <script src="https://unpkg.com/maplibre-gl@latest/dist/maplibre-gl.js"></script>
   <link href="https://unpkg.com/maplibre-gl@latest/dist/maplibre-gl.css" rel="stylesheet" />
+
   <style>
-    body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
-    #map { position: absolute; top: 0; bottom: 0; width: 100%; }
-    
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      width: 100%;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    #map {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 100%;
+      height: 100%;
+    }
+
     .panel {
       position: absolute;
       top: 15px;
       left: 15px;
-      z-index: 2;
+      z-index: 10;
       background: rgba(255, 255, 255, 0.95);
-      backdrop-filter: blur(4px);
+      backdrop-filter: blur(6px);
       padding: 16px;
       border-radius: 8px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
       width: 280px;
     }
+
     .panel h3 { margin: 0 0 12px 0; font-size: 16px; color: #1a202c; }
     .control-group { margin-bottom: 12px; }
     .control-group label { display: block; font-size: 12px; font-weight: bold; margin-bottom: 4px; color: #4a5568; }
-    select, input[type="file"], input[type="color"] { width: 100%; padding: 6px; border-radius: 4px; border: 1px solid #cbd5e0; box-sizing: border-box; }
     
-    #layer-list { max-height: 150px; overflow-y: auto; margin-top: 8px; }
-    .layer-item { display: flex; align-items: center; justify-content: space-between; font-size: 13px; background: #edf2f7; padding: 6px 8px; border-radius: 4px; margin-bottom: 4px; }
+    select, input[type="file"], input[type="color"] {
+      width: 100%;
+      padding: 6px;
+      border-radius: 4px;
+      border: 1px solid #cbd5e0;
+      box-sizing: border-box;
+    }
+
+    #layer-list {
+      max-height: 120px;
+      overflow-y: auto;
+      margin-top: 6px;
+    }
+
+    .layer-item {
+      font-size: 12px;
+      background: #edf2f7;
+      padding: 4px 8px;
+      border-radius: 4px;
+      margin-bottom: 4px;
+      word-break: break-all;
+    }
   </style>
 </head>
 <body>
@@ -36,29 +73,29 @@
   <h3>Map Controls</h3>
   
   <div class="control-group">
-    <label for="style-select">Basemap Style:</label>
+    <label for="style-select">Basemap Style Focus:</label>
     <select id="style-select">
-      <option value="./styles/roads-focus.json">Roads & Transit Focus</option>
-      <option value="./styles/greenspace-focus.json">Greenspace & Nature Focus</option>
-      <option value="./styles/blueprint-dark.json">Cyan Blueprint</option>
+      <option value="roads">Roads & Transit Focus</option>
+      <option value="greenspace">Greenspace & Nature Focus</option>
+      <option value="blueprint">Cyan Blueprint (Dark)</option>
     </select>
   </div>
 
   <div class="control-group">
-    <label>Load Local GeoJSON File:</label>
+    <label>Load Custom GeoJSON File:</label>
     <input type="file" id="geojson-input" accept=".geojson, .json" />
   </div>
 
   <div class="control-group">
-    <label>GeoJSON Style Config:</label>
+    <label>GeoJSON Overlay Style:</label>
     <div style="display: flex; gap: 8px;">
-      <input type="color" id="geojson-color" value="#3182ce">
+      <input type="color" id="geojson-color" value="#e53e3e">
       <input type="range" id="geojson-opacity" min="0.1" max="1" step="0.1" value="0.7">
     </div>
   </div>
 
   <div class="control-group">
-    <label>Active GeoJSON Layers:</label>
+    <label>Active Overlay Layers:</label>
     <div id="layer-list"></div>
   </div>
 </div>
@@ -66,22 +103,95 @@
 <div id="map"></div>
 
 <script>
-  // Store loaded custom GeoJSON features so they persist across style toggles
-  const userGeoJsonLayers = {};
+  // 1. EMBEDDED MAP STYLES (Powered by OpenFreeMap OSM Vector Tiles)
+  const openfreeMapSource = {
+    "type": "vector",
+    "url": "https://tiles.openfreemap.org/planet/latest"
+  };
 
+  const mapStyles = {
+    // STYLE A: ROADS & TRANSIT FOCUS
+    roads: {
+      "version": 8,
+      "sources": { "openfreemap": openfreeMapSource },
+      "sprite": "https://tiles.openfreemap.org/sprites/ofm/sprite",
+      "glyphs": "https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf",
+      "layers": [
+        { "id": "background", "type": "background", "paint": { "background-color": "#1a1a24" } },
+        { "id": "water", "type": "fill", "source": "openfreemap", "source-layer": "water", "paint": { "fill-color": "#111625" } },
+        {
+          "id": "roads-minor",
+          "type": "line",
+          "source": "openfreemap",
+          "source-layer": "transportation",
+          "filter": ["in", "class", "minor", "service", "track", "path"],
+          "paint": { "line-color": "#4a5568", "line-width": 1 }
+        },
+        {
+          "id": "roads-highways",
+          "type": "line",
+          "source": "openfreemap",
+          "source-layer": "transportation",
+          "filter": ["in", "class", "motorway", "trunk", "primary", "secondary"],
+          "paint": { "line-color": "#ff6b6b", "line-width": ["interpolate", ["linear"], ["zoom"], 6, 1.5, 16, 8] }
+        }
+      ]
+    },
+
+    // STYLE B: GREENSPACE & NATURE FOCUS
+    greenspace: {
+      "version": 8,
+      "sources": { "openfreemap": openfreeMapSource },
+      "sprite": "https://tiles.openfreemap.org/sprites/ofm/sprite",
+      "glyphs": "https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf",
+      "layers": [
+        { "id": "background", "type": "background", "paint": { "background-color": "#f0fdf4" } },
+        {
+          "id": "landcover-green",
+          "type": "fill",
+          "source": "openfreemap",
+          "source-layer": "landcover",
+          "filter": ["in", "class", "grass", "wood", "forest", "farmland"],
+          "paint": { "fill-color": "#4ade80", "fill-opacity": 0.5 }
+        },
+        { "id": "park", "type": "fill", "source": "openfreemap", "source-layer": "park", "paint": { "fill-color": "#15803d", "fill-opacity": 0.6 } },
+        { "id": "water", "type": "fill", "source": "openfreemap", "source-layer": "water", "paint": { "fill-color": "#38bdf8" } },
+        { "id": "roads-subtle", "type": "line", "source": "openfreemap", "source-layer": "transportation", "paint": { "line-color": "#94a3b8", "line-opacity": 0.4 } }
+      ]
+    },
+
+    // STYLE C: CYAN BLUEPRINT
+    blueprint: {
+      "version": 8,
+      "sources": { "openfreemap": openfreeMapSource },
+      "sprite": "https://tiles.openfreemap.org/sprites/ofm/sprite",
+      "glyphs": "https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf",
+      "layers": [
+        { "id": "background", "type": "background", "paint": { "background-color": "#030712" } },
+        { "id": "water", "type": "fill", "source": "openfreemap", "source-layer": "water", "paint": { "fill-color": "#0b192c" } },
+        { "id": "buildings", "type": "fill", "source": "openfreemap", "source-layer": "building", "paint": { "fill-color": "#06b6d4", "fill-opacity": 0.2, "fill-outline-color": "#22d3ee" } },
+        { "id": "roads", "type": "line", "source": "openfreemap", "source-layer": "transportation", "paint": { "line-color": "#22d3ee", "line-opacity": 0.6 } }
+      ]
+    }
+  };
+
+  // 2. INITIALIZE MAP
   const map = new maplibregl.Map({
     container: 'map',
-    style: './styles/roads-focus.json',
-    center: [-0.1276, 51.5074],
+    style: mapStyles.roads,
+    center: [-0.1276, 51.5074], // London Default
     zoom: 12
   });
 
   map.addControl(new maplibregl.NavigationControl());
 
-  // Function to inject or re-inject custom layers
-  function renderGeoJsonLayers() {
-    Object.keys(userGeoJsonLayers).forEach(layerId => {
-      const data = userGeoJsonLayers[layerId].data;
+  // Memory to retain uploaded GeoJSON features across style updates
+  const loadedGeoJSONs = {};
+
+  // 3. RENDER GEOJSON OVERLAYS
+  function renderGeoJsonOverlays() {
+    Object.keys(loadedGeoJSONs).forEach(layerId => {
+      const data = loadedGeoJSONs[layerId].data;
       const color = document.getElementById('geojson-color').value;
       const opacity = parseFloat(document.getElementById('geojson-opacity').value);
 
@@ -89,7 +199,6 @@
         map.addSource(layerId, { type: 'geojson', data: data });
       }
 
-      // Add fill for polygons
       if (!map.getLayer(layerId + '-fill')) {
         map.addLayer({
           id: layerId + '-fill',
@@ -100,7 +209,6 @@
         });
       }
 
-      // Add lines
       if (!map.getLayer(layerId + '-line')) {
         map.addLayer({
           id: layerId + '-line',
@@ -110,7 +218,6 @@
         });
       }
 
-      // Add points
       if (!map.getLayer(layerId + '-circle')) {
         map.addLayer({
           id: layerId + '-circle',
@@ -123,26 +230,18 @@
     });
   }
 
-  // Preserve GeoJSON layers when basemap theme changes
+  // Re-apply custom layers when basemap changes
   map.on('styledata', () => {
-    renderGeoJsonLayers();
+    renderGeoJsonOverlays();
   });
 
-  // Handle Basemap Switcher
+  // 4. STYLE SWITCHER EVENT
   document.getElementById('style-select').addEventListener('change', (e) => {
-    map.setStyle(e.target.value);
+    const selectedStyleKey = e.target.value;
+    map.setStyle(mapStyles[selectedStyleKey]);
   });
 
-  // Load sample GeoJSON from folder on boot
-  fetch('./geojson/sample-sites.geojson')
-    .then(res => res.json())
-    .then(data => {
-      userGeoJsonLayers['sample-sites'] = { name: 'sample-sites.geojson', data: data };
-      renderGeoJsonLayers();
-      updateLayerUI();
-    }).catch(err => console.log('No default GeoJSON found'));
-
-  // Allow uploading local GeoJSON files
+  // 5. LOCAL FILE UPLOAD HANDLER
   document.getElementById('geojson-input').addEventListener('change', (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -150,27 +249,28 @@
     const reader = new FileReader();
     reader.onload = (event) => {
       try {
-        const geojson = JSON.parse(event.target.result);
-        const layerId = 'user-' + Date.now();
-        userGeoJsonLayers[layerId] = { name: file.name, data: geojson };
-        renderGeoJsonLayers();
-        updateLayerUI();
+        const parsedGeoJSON = JSON.parse(event.target.result);
+        const layerId = 'user-layer-' + Date.now();
+        loadedGeoJSONs[layerId] = { name: file.name, data: parsedGeoJSON };
+        
+        renderGeoJsonOverlays();
+        updateUI();
       } catch (err) {
-        alert('Invalid GeoJSON file!');
+        alert('Could not parse GeoJSON file. Please check syntax.');
       }
     };
     reader.readAsText(file);
   });
 
-  // Update dynamic styling controls
-  document.getElementById('geojson-color').addEventListener('input', updateStyles);
-  document.getElementById('geojson-opacity').addEventListener('input', updateStyles);
+  // Dynamic Style Updates (Color & Opacity Inputs)
+  document.getElementById('geojson-color').addEventListener('input', updateLayerAppearance);
+  document.getElementById('geojson-opacity').addEventListener('input', updateLayerAppearance);
 
-  function updateStyles() {
+  function updateLayerAppearance() {
     const color = document.getElementById('geojson-color').value;
     const opacity = parseFloat(document.getElementById('geojson-opacity').value);
 
-    Object.keys(userGeoJsonLayers).forEach(layerId => {
+    Object.keys(loadedGeoJSONs).forEach(layerId => {
       if (map.getLayer(layerId + '-fill')) {
         map.setPaintProperty(layerId + '-fill', 'fill-color', color);
         map.setPaintProperty(layerId + '-fill', 'fill-opacity', opacity);
@@ -185,14 +285,14 @@
     });
   }
 
-  function updateLayerUI() {
+  function updateUI() {
     const list = document.getElementById('layer-list');
     list.innerHTML = '';
-    Object.keys(userGeoJsonLayers).forEach(key => {
-      const div = document.createElement('div');
-      div.className = 'layer-item';
-      div.innerText = userGeoJsonLayers[key].name;
-      list.appendChild(div);
+    Object.keys(loadedGeoJSONs).forEach(key => {
+      const item = document.createElement('div');
+      item.className = 'layer-item';
+      item.innerText = loadedGeoJSONs[key].name;
+      list.appendChild(item);
     });
   }
 </script>
