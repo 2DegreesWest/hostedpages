@@ -6,8 +6,8 @@
   <title>MapLibre Lightweight Vector App</title>
 
   <!-- MapLibre GL JS CSS and JS -->
-  <script src="https://unpkg.com/maplibre-gl@latest/dist/maplibre-gl.js"></script>
-  <link href="https://unpkg.com/maplibre-gl@latest/dist/maplibre-gl.css" rel="stylesheet" />
+  <script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
+  <link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet" />
 
   <style>
     html, body {
@@ -73,11 +73,11 @@
   <h3>Map Controls</h3>
   
   <div class="control-group">
-    <label for="style-select">Basemap Style Focus:</label>
+    <label for="style-select">Basemap Style:</label>
     <select id="style-select">
-      <option value="roads">Roads & Transit Focus</option>
-      <option value="greenspace">Greenspace & Nature Focus</option>
-      <option value="blueprint">Cyan Blueprint (Dark)</option>
+      <option value="https://tiles.openfreemap.org/styles/bright">Bright (Default)</option>
+      <option value="https://tiles.openfreemap.org/styles/dark">Dark Contrast</option>
+      <option value="https://tiles.openfreemap.org/styles/liberty">Liberty</option>
     </select>
   </div>
 
@@ -103,92 +103,20 @@
 <div id="map"></div>
 
 <script>
-  // 1. EMBEDDED MAP STYLES (Powered by OpenFreeMap OSM Vector Tiles)
-  const openfreeMapSource = {
-    "type": "vector",
-    "url": "https://tiles.openfreemap.org/planet/latest"
-  };
-
-  const mapStyles = {
-    // STYLE A: ROADS & TRANSIT FOCUS
-    roads: {
-      "version": 8,
-      "sources": { "openfreemap": openfreeMapSource },
-      "sprite": "https://tiles.openfreemap.org/sprites/ofm/sprite",
-      "glyphs": "https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf",
-      "layers": [
-        { "id": "background", "type": "background", "paint": { "background-color": "#1a1a24" } },
-        { "id": "water", "type": "fill", "source": "openfreemap", "source-layer": "water", "paint": { "fill-color": "#111625" } },
-        {
-          "id": "roads-minor",
-          "type": "line",
-          "source": "openfreemap",
-          "source-layer": "transportation",
-          "filter": ["in", "class", "minor", "service", "track", "path"],
-          "paint": { "line-color": "#4a5568", "line-width": 1 }
-        },
-        {
-          "id": "roads-highways",
-          "type": "line",
-          "source": "openfreemap",
-          "source-layer": "transportation",
-          "filter": ["in", "class", "motorway", "trunk", "primary", "secondary"],
-          "paint": { "line-color": "#ff6b6b", "line-width": ["interpolate", ["linear"], ["zoom"], 6, 1.5, 16, 8] }
-        }
-      ]
-    },
-
-    // STYLE B: GREENSPACE & NATURE FOCUS
-    greenspace: {
-      "version": 8,
-      "sources": { "openfreemap": openfreeMapSource },
-      "sprite": "https://tiles.openfreemap.org/sprites/ofm/sprite",
-      "glyphs": "https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf",
-      "layers": [
-        { "id": "background", "type": "background", "paint": { "background-color": "#f0fdf4" } },
-        {
-          "id": "landcover-green",
-          "type": "fill",
-          "source": "openfreemap",
-          "source-layer": "landcover",
-          "filter": ["in", "class", "grass", "wood", "forest", "farmland"],
-          "paint": { "fill-color": "#4ade80", "fill-opacity": 0.5 }
-        },
-        { "id": "park", "type": "fill", "source": "openfreemap", "source-layer": "park", "paint": { "fill-color": "#15803d", "fill-opacity": 0.6 } },
-        { "id": "water", "type": "fill", "source": "openfreemap", "source-layer": "water", "paint": { "fill-color": "#38bdf8" } },
-        { "id": "roads-subtle", "type": "line", "source": "openfreemap", "source-layer": "transportation", "paint": { "line-color": "#94a3b8", "line-opacity": 0.4 } }
-      ]
-    },
-
-    // STYLE C: CYAN BLUEPRINT
-    blueprint: {
-      "version": 8,
-      "sources": { "openfreemap": openfreeMapSource },
-      "sprite": "https://tiles.openfreemap.org/sprites/ofm/sprite",
-      "glyphs": "https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf",
-      "layers": [
-        { "id": "background", "type": "background", "paint": { "background-color": "#030712" } },
-        { "id": "water", "type": "fill", "source": "openfreemap", "source-layer": "water", "paint": { "fill-color": "#0b192c" } },
-        { "id": "buildings", "type": "fill", "source": "openfreemap", "source-layer": "building", "paint": { "fill-color": "#06b6d4", "fill-opacity": 0.2, "fill-outline-color": "#22d3ee" } },
-        { "id": "roads", "type": "line", "source": "openfreemap", "source-layer": "transportation", "paint": { "line-color": "#22d3ee", "line-opacity": 0.6 } }
-      ]
-    }
-  };
-
-  // 2. INITIALIZE MAP
+  // 1. INITIALIZE MAP WITH OPENFREEMAP VALID STYLE URL
   const map = new maplibregl.Map({
     container: 'map',
-    style: mapStyles.roads,
-    center: [-0.1276, 51.5074], // London Default
+    style: 'https://tiles.openfreemap.org/styles/bright',
+    center: [-0.1276, 51.5074], // London
     zoom: 12
   });
 
   map.addControl(new maplibregl.NavigationControl());
 
-  // Memory to retain uploaded GeoJSON features across style updates
+  // Memory store to retain uploaded GeoJSON features across style updates
   const loadedGeoJSONs = {};
 
-  // 3. RENDER GEOJSON OVERLAYS
+  // 2. RENDER GEOJSON OVERLAYS
   function renderGeoJsonOverlays() {
     Object.keys(loadedGeoJSONs).forEach(layerId => {
       const data = loadedGeoJSONs[layerId].data;
@@ -230,18 +158,17 @@
     });
   }
 
-  // Re-apply custom layers when basemap changes
+  // Re-apply custom GeoJSON layers automatically when basemap theme changes
   map.on('styledata', () => {
     renderGeoJsonOverlays();
   });
 
-  // 4. STYLE SWITCHER EVENT
+  // 3. SWITCH BASEMAP STYLES
   document.getElementById('style-select').addEventListener('change', (e) => {
-    const selectedStyleKey = e.target.value;
-    map.setStyle(mapStyles[selectedStyleKey]);
+    map.setStyle(e.target.value);
   });
 
-  // 5. LOCAL FILE UPLOAD HANDLER
+  // 4. LOCAL GEOJSON UPLOADER HANDLER
   document.getElementById('geojson-input').addEventListener('change', (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -256,13 +183,13 @@
         renderGeoJsonOverlays();
         updateUI();
       } catch (err) {
-        alert('Could not parse GeoJSON file. Please check syntax.');
+        alert('Could not parse GeoJSON file. Check file formatting.');
       }
     };
     reader.readAsText(file);
   });
 
-  // Dynamic Style Updates (Color & Opacity Inputs)
+  // Dynamic Color & Opacity Adjuster
   document.getElementById('geojson-color').addEventListener('input', updateLayerAppearance);
   document.getElementById('geojson-opacity').addEventListener('input', updateLayerAppearance);
 
