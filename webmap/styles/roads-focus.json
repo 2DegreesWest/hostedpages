@@ -1,0 +1,59 @@
+{
+  "version": 8,
+  "name": "Roads & Transit Focus",
+  "sources": {
+    "openfreemap": {
+      "type": "vector",
+      "url": "https://tiles.openfreemap.org/planet/latest"
+    }
+  },
+  "sprite": "https://tiles.openfreemap.org/sprites/ofm/sprite",
+  "glyphs": "https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf",
+  "layers": [
+    {
+      "id": "background",
+      "type": "background",
+      "paint": { "background-color": "#121318" }
+    },
+    {
+      "id": "water",
+      "type": "fill",
+      "source": "openfreemap",
+      "source-layer": "water",
+      "paint": { "fill-color": "#1c2333" }
+    },
+    {
+      "id": "roads-minor",
+      "type": "line",
+      "source": "openfreemap",
+      "source-layer": "transportation",
+      "filter": ["in", "class", "minor", "service", "track", "path"],
+      "paint": {
+        "line-color": "#4a5568",
+        "line-width": ["interpolate", ["linear"], ["zoom"], 10, 0.5, 16, 4]
+      }
+    },
+    {
+      "id": "roads-secondary",
+      "type": "line",
+      "source": "openfreemap",
+      "source-layer": "transportation",
+      "filter": ["in", "class", "secondary", "tertiary"],
+      "paint": {
+        "line-color": "#f6ad55",
+        "line-width": ["interpolate", ["linear"], ["zoom"], 8, 1, 16, 7]
+      }
+    },
+    {
+      "id": "roads-highways",
+      "type": "line",
+      "source": "openfreemap",
+      "source-layer": "transportation",
+      "filter": ["in", "class", "motorway", "trunk", "primary"],
+      "paint": {
+        "line-color": "#f56565",
+        "line-width": ["interpolate", ["linear"], ["zoom"], 6, 1.5, 16, 10]
+      }
+    }
+  ]
+}

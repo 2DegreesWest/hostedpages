@@ -1,0 +1,40 @@
+{
+  "version": 8,
+  "name": "Cyan Blueprint",
+  "sources": {
+    "openfreemap": {
+      "type": "vector",
+      "url": "https://tiles.openfreemap.org/planet/latest"
+    }
+  },
+  "sprite": "https://tiles.openfreemap.org/sprites/ofm/sprite",
+  "glyphs": "https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf",
+  "layers": [
+    {
+      "id": "background",
+      "type": "background",
+      "paint": { "background-color": "#051329" }
+    },
+    {
+      "id": "water",
+      "type": "fill",
+      "source": "openfreemap",
+      "source-layer": "water",
+      "paint": { "fill-color": "#0a2540" }
+    },
+    {
+      "id": "buildings",
+      "type": "fill",
+      "source": "openfreemap",
+      "source-layer": "building",
+      "paint": { "fill-color": "#00f0ff", "fill-opacity": 0.15, "fill-outline-color": "#00f0ff" }
+    },
+    {
+      "id": "roads",
+      "type": "line",
+      "source": "openfreemap",
+      "source-layer": "transportation",
+      "paint": { "line-color": "#00f0ff", "line-opacity": 0.5 }
+    }
+  ]
+}

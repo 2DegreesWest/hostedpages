@@ -1,0 +1,48 @@
+{
+  "version": 8,
+  "name": "Greenspace & Nature Focus",
+  "sources": {
+    "openfreemap": {
+      "type": "vector",
+      "url": "https://tiles.openfreemap.org/planet/latest"
+    }
+  },
+  "sprite": "https://tiles.openfreemap.org/sprites/ofm/sprite",
+  "glyphs": "https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf",
+  "layers": [
+    {
+      "id": "background",
+      "type": "background",
+      "paint": { "background-color": "#f4f7f4" }
+    },
+    {
+      "id": "landcover-green",
+      "type": "fill",
+      "source": "openfreemap",
+      "source-layer": "landcover",
+      "filter": ["in", "class", "grass", "wood", "forest", "farmland"],
+      "paint": { "fill-color": "#81c784", "fill-opacity": 0.6 }
+    },
+    {
+      "id": "park",
+      "type": "fill",
+      "source": "openfreemap",
+      "source-layer": "park",
+      "paint": { "fill-color": "#388e3c", "fill-opacity": 0.5 }
+    },
+    {
+      "id": "water",
+      "type": "fill",
+      "source": "openfreemap",
+      "source-layer": "water",
+      "paint": { "fill-color": "#29b6f6" }
+    },
+    {
+      "id": "roads-subtle",
+      "type": "line",
+      "source": "openfreemap",
+      "source-layer": "transportation",
+      "paint": { "line-color": "#a1a1a1", "line-opacity": 0.3 }
+    }
+  ]
+}
