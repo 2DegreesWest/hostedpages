@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>MapLibre Custom Style & GeoJSON Viewer</title>
+  <script src="https://unpkg.com/maplibre-gl@latest/dist/maplibre-gl.js"></script>
+  <link href="https://unpkg.com/maplibre-gl@latest/dist/maplibre-gl.css" rel="stylesheet" />
+  <style>
+    body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+    #map { position: absolute; top: 0; bottom: 0; width: 100%; }
+    
+    .panel {
+      position: absolute;
+      top: 15px;
+      left: 15px;
+      z-index: 2;
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(4px);
+      padding: 16px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      width: 280px;
+    }
+    .panel h3 { margin: 0 0 12px 0; font-size: 16px; color: #1a202c; }
+    .control-group { margin-bottom: 12px; }
+    .control-group label { display: block; font-size: 12px; font-weight: bold; margin-bottom: 4px; color: #4a5568; }
+    select, input[type="file"], input[type="color"] { width: 100%; padding: 6px; border-radius: 4px; border: 1px solid #cbd5e0; box-sizing: border-box; }
+    
+    #layer-list { max-height: 150px; overflow-y: auto; margin-top: 8px; }
+    .layer-item { display: flex; align-items: center; justify-content: space-between; font-size: 13px; background: #edf2f7; padding: 6px 8px; border-radius: 4px; margin-bottom: 4px; }
+  </style>
+</head>
+<body>
+
+<div class="panel">
+  <h3>Map Controls</h3>
+  
+  <div class="control-group">
+    <label for="style-select">Basemap Style:</label>
+    <select id="style-select">
+      <option value="./styles/roads-focus.json">Roads & Transit Focus</option>
+      <option value="./styles/greenspace-focus.json">Greenspace & Nature Focus</option>
+      <option value="./styles/blueprint-dark.json">Cyan Blueprint</option>
+    </select>
+  </div>
+
+  <div class="control-group">
+    <label>Load Local GeoJSON File:</label>
+    <input type="file" id="geojson-input" accept=".geojson, .json" />
+  </div>
+
+  <div class="control-group">
+    <label>GeoJSON Style Config:</label>
+    <div style="display: flex; gap: 8px;">
+      <input type="color" id="geojson-color" value="#3182ce">
+      <input type="range" id="geojson-opacity" min="0.1" max="1" step="0.1" value="0.7">
+    </div>
+  </div>
+
+  <div class="control-group">
+    <label>Active GeoJSON Layers:</label>
+    <div id="layer-list"></div>
+  </div>
+</div>
+
+<div id="map"></div>
+
+<script>
+  // Store loaded custom GeoJSON features so they persist across style toggles
+  const userGeoJsonLayers = {};
+
+  const map = new maplibregl.Map({
+    container: 'map',
+    style: './styles/roads-focus.json',
+    center: [-0.1276, 51.5074],
+    zoom: 12
+  });
+
+  map.addControl(new maplibregl.NavigationControl());
+
+  // Function to inject or re-inject custom layers
+  function renderGeoJsonLayers() {
+    Object.keys(userGeoJsonLayers).forEach(layerId => {
+      const data = userGeoJsonLayers[layerId].data;
+      const color = document.getElementById('geojson-color').value;
+      const opacity = parseFloat(document.getElementById('geojson-opacity').value);
+
+      if (!map.getSource(layerId)) {
+        map.addSource(layerId, { type: 'geojson', data: data });
+      }
+
+      // Add fill for polygons
+      if (!map.getLayer(layerId + '-fill')) {
+        map.addLayer({
+          id: layerId + '-fill',
+          type: 'fill',
+          source: layerId,
+          filter: ['==', '$type', 'Polygon'],
+          paint: { 'fill-color': color, 'fill-opacity': opacity }
+        });
+      }
+
+      // Add lines
+      if (!map.getLayer(layerId + '-line')) {
+        map.addLayer({
+          id: layerId + '-line',
+          type: 'line',
+          source: layerId,
+          paint: { 'line-color': color, 'line-width': 3 }
+        });
+      }
+
+      // Add points
+      if (!map.getLayer(layerId + '-circle')) {
+        map.addLayer({
+          id: layerId + '-circle',
+          type: 'circle',
+          source: layerId,
+          filter: ['==', '$type', 'Point'],
+          paint: { 'circle-color': color, 'circle-radius': 6, 'circle-opacity': opacity }
+        });
+      }
+    });
+  }
+
+  // Preserve GeoJSON layers when basemap theme changes
+  map.on('styledata', () => {
+    renderGeoJsonLayers();
+  });
+
+  // Handle Basemap Switcher
+  document.getElementById('style-select').addEventListener('change', (e) => {
+    map.setStyle(e.target.value);
+  });
+
+  // Load sample GeoJSON from folder on boot
+  fetch('./geojson/sample-sites.geojson')
+    .then(res => res.json())
+    .then(data => {
+      userGeoJsonLayers['sample-sites'] = { name: 'sample-sites.geojson', data: data };
+      renderGeoJsonLayers();
+      updateLayerUI();
+    }).catch(err => console.log('No default GeoJSON found'));
+
+  // Allow uploading local GeoJSON files
+  document.getElementById('geojson-input').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const geojson = JSON.parse(event.target.result);
+        const layerId = 'user-' + Date.now();
+        userGeoJsonLayers[layerId] = { name: file.name, data: geojson };
+        renderGeoJsonLayers();
+        updateLayerUI();
+      } catch (err) {
+        alert('Invalid GeoJSON file!');
+      }
+    };
+    reader.readAsText(file);
+  });
+
+  // Update dynamic styling controls
+  document.getElementById('geojson-color').addEventListener('input', updateStyles);
+  document.getElementById('geojson-opacity').addEventListener('input', updateStyles);
+
+  function updateStyles() {
+    const color = document.getElementById('geojson-color').value;
+    const opacity = parseFloat(document.getElementById('geojson-opacity').value);
+
+    Object.keys(userGeoJsonLayers).forEach(layerId => {
+      if (map.getLayer(layerId + '-fill')) {
+        map.setPaintProperty(layerId + '-fill', 'fill-color', color);
+        map.setPaintProperty(layerId + '-fill', 'fill-opacity', opacity);
+      }
+      if (map.getLayer(layerId + '-line')) {
+        map.setPaintProperty(layerId + '-line', 'line-color', color);
+      }
+      if (map.getLayer(layerId + '-circle')) {
+        map.setPaintProperty(layerId + '-circle', 'circle-color', color);
+        map.setPaintProperty(layerId + '-circle', 'circle-opacity', opacity);
+      }
+    });
+  }
+
+  function updateLayerUI() {
+    const list = document.getElementById('layer-list');
+    list.innerHTML = '';
+    Object.keys(userGeoJsonLayers).forEach(key => {
+      const div = document.createElement('div');
+      div.className = 'layer-item';
+      div.innerText = userGeoJsonLayers[key].name;
+      list.appendChild(div);
+    });
+  }
+</script>
+</body>
+</html>
