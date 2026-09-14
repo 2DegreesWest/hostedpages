@@ -1,0 +1,80 @@
+{
+  "version": 8,
+  "name": "Transport Theme",
+  "sources": {
+    "openfreemap": {
+      "type": "vector",
+      "url": "https://tiles.openfreemap.org/planet/latest.json"
+    }
+  },
+  "glyphs": "https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf",
+  "layers": [
+    { "id": "background", "type": "background", "paint": { "background-color": "#f0f2f5" } },
+    { "id": "water", "type": "fill", "source": "openfreemap", "source-layer": "water", "paint": { "fill-color": "#cbd5e1" } },
+
+    {
+      "id": "railways",
+      "type": "line",
+      "source": "openfreemap",
+      "source-layer": "transportation",
+      "filter": ["==", "class", "rail"],
+      "paint": {
+        "line-color": "#475569",
+        "line-width": ["interpolate", ["linear"], ["zoom"], 6, 1, 14, 3],
+        "line-dasharray": [3, 2]
+      }
+    },
+    {
+      "id": "roads-secondary",
+      "type": "line",
+      "source": "openfreemap",
+      "source-layer": "transportation",
+      "filter": ["in", "class", "secondary", "tertiary"],
+      "minzoom": 8,
+      "paint": { "line-color": "#ffffff", "line-width": ["interpolate", ["linear"], ["zoom"], 8, 0.8, 14, 3] }
+    },
+    {
+      "id": "roads-primary",
+      "type": "line",
+      "source": "openfreemap",
+      "source-layer": "transportation",
+      "filter": ["in", "class", "primary", "trunk"],
+      "minzoom": 5,
+      "paint": { "line-color": "#f59e0b", "line-width": ["interpolate", ["linear"], ["zoom"], 5, 1, 14, 5] }
+    },
+    {
+      "id": "roads-motorway",
+      "type": "line",
+      "source": "openfreemap",
+      "source-layer": "transportation",
+      "filter": ["==", "class", "motorway"],
+      "paint": { "line-color": "#ef4444", "line-width": ["interpolate", ["linear"], ["zoom"], 4, 1.5, 14, 6] }
+    },
+
+    {
+      "id": "hubs-airports",
+      "type": "symbol",
+      "source": "openfreemap",
+      "source-layer": "aeroway",
+      "layout": {
+        "text-field": "✈ {name:latin}",
+        "text-font": ["Noto Sans Bold"],
+        "text-size": ["interpolate", ["linear"], ["zoom"], 4, 10, 12, 16]
+      },
+      "paint": { "text-color": "#1e3a8a", "text-halo-color": "#ffffff", "text-halo-width": 2 }
+    },
+    {
+      "id": "hubs-ports",
+      "type": "symbol",
+      "source": "openfreemap",
+      "source-layer": "poi",
+      "filter": ["==", "class", "harbor"],
+      "layout": {
+        "text-field": "⚓ {name:latin}",
+        "text-font": ["Noto Sans Bold"],
+        "text-size": 12
+      },
+      "paint": { "text-color": "#0f766e", "text-halo-color": "#ffffff", "text-halo-width": 2 }
+    }
+  ]
+}
