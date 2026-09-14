@@ -1,0 +1,52 @@
+{
+  "version": 8,
+  "name": "Aerial Imagery",
+  "sources": {
+    "esri-satellite": {
+      "type": "raster",
+      "tiles": [
+        "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+      ],
+      "tileSize": 256,
+      "maxzoom": 18,
+      "attribution": "Tiles © Esri — Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community"
+    },
+    "openfreemap": {
+      "type": "vector",
+      "url": "https://tiles.openfreemap.org/planet/latest.json"
+    }
+  },
+  "glyphs": "https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf",
+  "layers": [
+    {
+      "id": "satellite-base",
+      "type": "raster",
+      "source": "esri-satellite"
+    },
+    {
+      "id": "admin-boundaries-overlay",
+      "type": "line",
+      "source": "openfreemap",
+      "source-layer": "boundary",
+      "filter": ["==", "admin_level", 2],
+      "paint": {
+        "line-color": "#ffffff",
+        "line-width": 1.5,
+        "line-dasharray": [4, 2]
+      }
+    },
+    {
+      "id": "labels-overlay",
+      "type": "symbol",
+      "source": "openfreemap",
+      "source-layer": "place",
+      "filter": ["in", "class", "country", "city"],
+      "layout": {
+        "text-field": "{name:latin}",
+        "text-font": ["Noto Sans Bold"],
+        "text-size": 13
+      },
+      "paint": { "text-color": "#ffffff", "text-halo-color": "#000000", "text-halo-width": 2 }
+    }
+  ]
+}
