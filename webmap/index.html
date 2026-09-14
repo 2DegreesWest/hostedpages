@@ -3,8 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MapLibre Reference Map</title>
+  <title>MapLibre Lightweight Mapping Application</title>
 
+  <!-- MapLibre GL JS CSS and JS -->
   <script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
   <link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet" />
 
@@ -34,7 +35,7 @@
       backdrop-filter: blur(6px);
       padding: 16px;
       border-radius: 8px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
       width: 280px;
     }
 
@@ -74,9 +75,10 @@
   <div class="control-group">
     <label for="style-select">Basemap Focus:</label>
     <select id="style-select">
-      <option value="styles/mapaction-reference.json">MapAction Reference (Subfolder)</option>
-      <option value="https://tiles.openfreemap.org/styles/bright">Bright OSM</option>
-      <option value="https://tiles.openfreemap.org/styles/dark">Dark OSM</option>
+      <option value="styles/mapaction-reference.json">MapAction Reference</option>
+      <option value="styles/roads-focus.json">Roads & Transit Focus</option>
+      <option value="styles/greenspace-focus.json">Greenspace Focus</option>
+      <option value="styles/blueprint-dark.json">Cyan Blueprint</option>
     </select>
   </div>
 
@@ -102,18 +104,20 @@
 <div id="map"></div>
 
 <script>
-  // 1. INITIALIZE MAP WITH SUBFOLDER STYLE
+  // 1. INITIALIZE MAP USING SUBFOLDER STYLE
   const map = new maplibregl.Map({
     container: 'map',
     style: 'styles/mapaction-reference.json',
-    center: [15, 7], // Centered over West/Central Africa for macro view
+    center: [15, 7], // Default view centered for macro reference
     zoom: 3
   });
 
   map.addControl(new maplibregl.NavigationControl());
 
+  // Store for retaining uploaded GeoJSON data across style changes
   const loadedGeoJSONs = {};
 
+  // 2. RENDER GEOJSON OVERLAYS
   function renderGeoJsonOverlays() {
     Object.keys(loadedGeoJSONs).forEach(layerId => {
       const data = loadedGeoJSONs[layerId].data;
@@ -155,15 +159,17 @@
     });
   }
 
+  // Preserve GeoJSON overlays when basemap style changes
   map.on('styledata', () => {
     renderGeoJsonOverlays();
   });
 
-  // 2. TOGGLE BETWEEN SUBFOLDER JSON AND REMOTE STYLES
+  // 3. SWITCH BASEMAP STYLES (FROM SUBFOLDER ONLY)
   document.getElementById('style-select').addEventListener('change', (e) => {
     map.setStyle(e.target.value);
   });
 
+  // 4. LOCAL GEOJSON Uploader
   document.getElementById('geojson-input').addEventListener('change', (e) => {
     const file = e.target.files[0];
     if (!file) return;
