@@ -1,0 +1,34 @@
+{
+  "version": 8,
+  "name": "OSM Basic",
+  "sources": {
+    "openfreemap": {
+      "type": "vector",
+      "url": "https://tiles.openfreemap.org/planet/latest.json"
+    }
+  },
+  "glyphs": "https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf",
+  "layers": [
+    { "id": "background", "type": "background", "paint": { "background-color": "#f2efa9" } },
+    { "id": "water", "type": "fill", "source": "openfreemap", "source-layer": "water", "paint": { "fill-color": "#aad3df" } },
+    {
+      "id": "roads",
+      "type": "line",
+      "source": "openfreemap",
+      "source-layer": "transportation",
+      "paint": { "line-color": "#ffffff", "line-width": 2 }
+    },
+    {
+      "id": "place-labels",
+      "type": "symbol",
+      "source": "openfreemap",
+      "source-layer": "place",
+      "layout": {
+        "text-field": "{name:latin}",
+        "text-font": ["Noto Sans Regular"],
+        "text-size": 12
+      },
+      "paint": { "text-color": "#222222", "text-halo-color": "#ffffff", "text-halo-width": 1 }
+    }
+  ]
+}
