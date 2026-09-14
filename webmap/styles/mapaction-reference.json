@@ -1,0 +1,89 @@
+{
+  "version": 8,
+  "name": "MapAction Reference",
+  "sources": {
+    "openfreemap": {
+      "type": "vector",
+      "url": "https://tiles.openfreemap.org/planet/latest.json"
+    }
+  },
+  "sprite": "https://tiles.openfreemap.org/sprites/ofm/sprite",
+  "glyphs": "https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf",
+  "layers": [
+    {
+      "id": "background",
+      "type": "background",
+      "paint": { "background-color": "#f8f9fa" }
+    },
+    {
+      "id": "water",
+      "type": "fill",
+      "source": "openfreemap",
+      "source-layer": "water",
+      "paint": { "fill-color": "#d0dbe5" }
+    },
+    {
+      "id": "boundaries-country",
+      "type": "line",
+      "source": "openfreemap",
+      "source-layer": "boundary",
+      "filter": ["==", "admin_level", 2],
+      "paint": {
+        "line-color": "#718096",
+        "line-width": ["interpolate", ["linear"], ["zoom"], 3, 0.75, 10, 2],
+        "line-dasharray": [3, 2]
+      }
+    },
+    {
+      "id": "roads-major-subtle",
+      "type": "line",
+      "source": "openfreemap",
+      "source-layer": "transportation",
+      "filter": ["in", "class", "motorway", "trunk", "primary"],
+      "minzoom": 7,
+      "paint": {
+        "line-color": "#a0aec0",
+        "line-width": ["interpolate", ["linear"], ["zoom"], 7, 0.5, 14, 2.5],
+        "line-opacity": 0.5
+      }
+    },
+    {
+      "id": "places-country-labels",
+      "type": "symbol",
+      "source": "openfreemap",
+      "source-layer": "place",
+      "filter": ["==", "class", "country"],
+      "maxzoom": 6,
+      "layout": {
+        "text-field": "{name:latin}",
+        "text-font": ["Noto Sans Regular"],
+        "text-size": ["interpolate", ["linear"], ["zoom"], 2, 10, 6, 16],
+        "text-transform": "uppercase"
+      },
+      "paint": {
+        "text-color": "#2d3748",
+        "text-halo-color": "#ffffff",
+        "text-halo-width": 1.5
+      }
+    },
+    {
+      "id": "places-major-cities-stars",
+      "type": "symbol",
+      "source": "openfreemap",
+      "source-layer": "place",
+      "filter": ["in", "class", "city", "capital"],
+      "layout": {
+        "text-field": "★ {name:latin}",
+        "text-font": ["Noto Sans Regular"],
+        "text-size": ["interpolate", ["linear"], ["zoom"], 3, 10, 10, 14],
+        "text-anchor": "left",
+        "text-offset": [0.3, 0]
+      },
+      "paint": {
+        "text-color": "#1a202c",
+        "text-halo-color": "#ffffff",
+        "text-halo-width": 2
+      }
+    }
+  ]
+}
