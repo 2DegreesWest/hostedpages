@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MapLibre Lightweight Mapping Application</title>
+  <title>MapAction Lightweight Mapping Application</title>
 
   <!-- MapLibre GL JS CSS and JS -->
   <script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
@@ -16,30 +16,86 @@
       height: 100%;
       width: 100%;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      overflow: hidden;
     }
 
-    #map {
+    /* Top White Header Bar */
+    .header-bar {
       position: absolute;
       top: 0;
-      bottom: 0;
-      width: 100%;
-      height: 100%;
+      left: 0;
+      right: 0;
+      height: 60px;
+      background-color: #ffffff;
+      border-bottom: 1px solid #e2e8f0;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+      z-index: 20;
     }
 
+    .brand-container {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+    }
+
+    .brand-logo {
+      height: 38px;
+      width: auto;
+      display: flex;
+      align-items: center;
+    }
+
+    .brand-logo svg {
+      height: 38px;
+      width: 38px;
+    }
+
+    .brand-title {
+      font-size: 20px;
+      font-weight: 800;
+      color: #002b66; /* MapAction Navy */
+      letter-spacing: -0.5px;
+    }
+
+    .brand-title span {
+      color: #e53e3e; /* MapAction Red accent */
+    }
+
+    .header-tagline {
+      font-size: 13px;
+      color: #718096;
+      font-weight: 500;
+    }
+
+    /* Map takes up the remaining viewport space */
+    #map {
+      position: absolute;
+      top: 60px;
+      bottom: 0;
+      width: 100%;
+    }
+
+    /* Floating Panel positioned below top bar */
     .panel {
       position: absolute;
-      top: 15px;
+      top: 75px;
       left: 15px;
       z-index: 10;
       background: rgba(255, 255, 255, 0.95);
       backdrop-filter: blur(6px);
       padding: 16px;
       border-radius: 8px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
       width: 280px;
+      border: 1px solid #edf2f7;
     }
 
-    .panel h3 { margin: 0 0 12px 0; font-size: 16px; color: #1a202c; }
+    .panel h3 { margin: 0 0 12px 0; font-size: 15px; color: #1a202c; }
     .control-group { margin-bottom: 12px; }
     .control-group label { display: block; font-size: 12px; font-weight: bold; margin-bottom: 4px; color: #4a5568; }
     
@@ -49,6 +105,7 @@
       border-radius: 4px;
       border: 1px solid #cbd5e0;
       box-sizing: border-box;
+      font-size: 13px;
     }
 
     #layer-list {
@@ -69,6 +126,25 @@
 </head>
 <body>
 
+<!-- MAPACTION TOP HEADER BAR -->
+<header class="header-bar">
+  <div class="brand-container">
+    <div class="brand-logo">
+      <!-- Embedded Vector Icon of MapAction Globe -->
+      <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M50 5 C25 5 5 25 5 50 C5 75 25 95 50 95 C75 95 95 75 95 50 C95 25 75 5 50 5 Z" fill="#002b66"/>
+        <path d="M35 35 L65 35 L65 65 L35 65 Z" fill="#e53e3e"/>
+        <path d="M20 20 H80 V80 H20 Z" stroke="#ffffff" stroke-width="4" fill="none"/>
+        <line x1="50" y1="5" x2="50" y2="95" stroke="#ffffff" stroke-width="3"/>
+        <line x1="5" y1="50" x2="95" y2="50" stroke="#ffffff" stroke-width="3"/>
+      </svg>
+    </div>
+    <div class="brand-title">Map<span>Action</span></div>
+  </div>
+  <div class="header-tagline">Spatial Data & Mapping Portal</div>
+</header>
+
+<!-- FLOATING CONTROL PANEL -->
 <div class="panel">
   <h3>Map Controls</h3>
   
@@ -101,6 +177,7 @@
   </div>
 </div>
 
+<!-- MAP CONTAINER -->
 <div id="map"></div>
 
 <script>
@@ -108,7 +185,7 @@
   const map = new maplibregl.Map({
     container: 'map',
     style: 'styles/mapaction-reference.json',
-    center: [15, 7], // Default view centered for macro reference
+    center: [15, 7], // Centered view for humanitarian macro reference
     zoom: 3
   });
 
