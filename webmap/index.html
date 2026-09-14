@@ -31,48 +31,19 @@
       box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      padding: 0 20px;
+      padding: 0 16px;
       z-index: 20;
     }
 
-    .brand-container {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      text-decoration: none;
-    }
-
+    /* Logo Styling */
     .brand-logo {
-      height: 38px;
+      height: 42px;
       width: auto;
-      display: flex;
-      align-items: center;
+      /* Removes the black background of the image when rendered over white */
+      mix-blend-mode: multiply; 
     }
 
-    .brand-logo svg {
-      height: 38px;
-      width: 38px;
-    }
-
-    .brand-title {
-      font-size: 20px;
-      font-weight: 800;
-      color: #002b66; /* MapAction Navy */
-      letter-spacing: -0.5px;
-    }
-
-    .brand-title span {
-      color: #e53e3e; /* MapAction Red accent */
-    }
-
-    .header-tagline {
-      font-size: 13px;
-      color: #718096;
-      font-weight: 500;
-    }
-
-    /* Map takes up the remaining viewport space */
+    /* Map takes up remaining screen area */
     #map {
       position: absolute;
       top: 60px;
@@ -128,20 +99,8 @@
 
 <!-- MAPACTION TOP HEADER BAR -->
 <header class="header-bar">
-  <div class="brand-container">
-    <div class="brand-logo">
-      <!-- Embedded Vector Icon of MapAction Globe -->
-      <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M50 5 C25 5 5 25 5 50 C5 75 25 95 50 95 C75 95 95 75 95 50 C95 25 75 5 50 5 Z" fill="#002b66"/>
-        <path d="M35 35 L65 35 L65 65 L35 65 Z" fill="#e53e3e"/>
-        <path d="M20 20 H80 V80 H20 Z" stroke="#ffffff" stroke-width="4" fill="none"/>
-        <line x1="50" y1="5" x2="50" y2="95" stroke="#ffffff" stroke-width="3"/>
-        <line x1="5" y1="50" x2="95" y2="50" stroke="#ffffff" stroke-width="3"/>
-      </svg>
-    </div>
-    <div class="brand-title">Map<span>Action</span></div>
-  </div>
-  <div class="header-tagline">Spatial Data & Mapping Portal</div>
+  <!-- Update 'Logo.jpg' or 'logo.png' to match your exact file name in GitHub -->
+  <img src="Logo.jpg" alt="MapAction Logo" class="brand-logo" />
 </header>
 
 <!-- FLOATING CONTROL PANEL -->
@@ -185,7 +144,7 @@
   const map = new maplibregl.Map({
     container: 'map',
     style: 'styles/mapaction-reference.json',
-    center: [15, 7], // Centered view for humanitarian macro reference
+    center: [15, 7], 
     zoom: 3
   });
 
@@ -241,12 +200,12 @@
     renderGeoJsonOverlays();
   });
 
-  // 3. SWITCH BASEMAP STYLES (FROM SUBFOLDER ONLY)
+  // 3. SWITCH BASEMAP STYLES
   document.getElementById('style-select').addEventListener('change', (e) => {
     map.setStyle(e.target.value);
   });
 
-  // 4. LOCAL GEOJSON Uploader
+  // 4. LOCAL GEOJSON UPLOADER
   document.getElementById('geojson-input').addEventListener('change', (e) => {
     const file = e.target.files[0];
     if (!file) return;
