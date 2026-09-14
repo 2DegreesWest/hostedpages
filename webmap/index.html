@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MapLibre Custom Vector Styles</title>
+  <title>MapLibre Reference Map</title>
 
   <script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
   <link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet" />
@@ -72,11 +72,11 @@
   <h3>Map Controls</h3>
   
   <div class="control-group">
-    <label for="style-select">Custom Basemap Focus:</label>
+    <label for="style-select">Basemap Focus:</label>
     <select id="style-select">
-      <option value="roads">Roads & Transit Focus</option>
-      <option value="greenspace">Greenspace & Parks Focus</option>
-      <option value="blueprint">Dark Blueprint Mode</option>
+      <option value="styles/mapaction-reference.json">MapAction Reference (Subfolder)</option>
+      <option value="https://tiles.openfreemap.org/styles/bright">Bright OSM</option>
+      <option value="https://tiles.openfreemap.org/styles/dark">Dark OSM</option>
     </select>
   </div>
 
@@ -102,118 +102,12 @@
 <div id="map"></div>
 
 <script>
-  // Correct OpenFreeMap TileJSON endpoint
-  const openfreeMapSource = {
-    "type": "vector",
-    "url": "https://tiles.openfreemap.org/planet/latest.json"
-  };
-
-  // 1. YOUR CUSTOM MAP STYLES
-  const customStyles = {
-    
-    // --- CUSTOM STYLE A: ROADS & TRANSIT ---
-    roads: {
-      "version": 8,
-      "sources": { "openfreemap": openfreeMapSource },
-      "sprite": "https://tiles.openfreemap.org/sprites/ofm/sprite",
-      "glyphs": "https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf",
-      "layers": [
-        { "id": "background", "type": "background", "paint": { "background-color": "#111827" } },
-        { "id": "water", "type": "fill", "source": "openfreemap", "source-layer": "water", "paint": { "fill-color": "#1f2937" } },
-        {
-          "id": "minor-roads",
-          "type": "line",
-          "source": "openfreemap",
-          "source-layer": "transportation",
-          "paint": { "line-color": "#4b5563", "line-width": 1 }
-        },
-        {
-          "id": "major-roads",
-          "type": "line",
-          "source": "openfreemap",
-          "source-layer": "transportation",
-          "filter": ["in", "class", "motorway", "trunk", "primary", "secondary"],
-          "paint": { 
-            "line-color": "#f97316", 
-            "line-width": ["interpolate", ["linear"], ["zoom"], 6, 2, 16, 8] 
-          }
-        }
-      ]
-    },
-
-    // --- CUSTOM STYLE B: GREENSPACE & PARKS ---
-    greenspace: {
-      "version": 8,
-      "sources": { "openfreemap": openfreeMapSource },
-      "sprite": "https://tiles.openfreemap.org/sprites/ofm/sprite",
-      "glyphs": "https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf",
-      "layers": [
-        { "id": "background", "type": "background", "paint": { "background-color": "#f8fafc" } },
-        {
-          "id": "landcover-green",
-          "type": "fill",
-          "source": "openfreemap",
-          "source-layer": "landcover",
-          "filter": ["in", "class", "grass", "wood", "forest", "farmland"],
-          "paint": { "fill-color": "#86efac", "fill-opacity": 0.7 }
-        },
-        { 
-          "id": "park", 
-          "type": "fill", 
-          "source": "openfreemap", 
-          "source-layer": "park", 
-          "paint": { "fill-color": "#22c55e", "fill-opacity": 0.8 } 
-        },
-        { 
-          "id": "water", 
-          "type": "fill", 
-          "source": "openfreemap", 
-          "source-layer": "water", 
-          "paint": { "fill-color": "#38bdf8" } 
-        },
-        { 
-          "id": "roads-subtle", 
-          "type": "line", 
-          "source": "openfreemap", 
-          "source-layer": "transportation", 
-          "paint": { "line-color": "#cbd5e1", "line-width": 1 } 
-        }
-      ]
-    },
-
-    // --- CUSTOM STYLE C: DARK BLUEPRINT ---
-    blueprint: {
-      "version": 8,
-      "sources": { "openfreemap": openfreeMapSource },
-      "sprite": "https://tiles.openfreemap.org/sprites/ofm/sprite",
-      "glyphs": "https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf",
-      "layers": [
-        { "id": "background", "type": "background", "paint": { "background-color": "#020617" } },
-        { "id": "water", "type": "fill", "source": "openfreemap", "source-layer": "water", "paint": { "fill-color": "#0f172a" } },
-        { 
-          "id": "buildings", 
-          "type": "fill", 
-          "source": "openfreemap", 
-          "source-layer": "building", 
-          "paint": { "fill-color": "#06b6d4", "fill-opacity": 0.2, "fill-outline-color": "#22d3ee" } 
-        },
-        { 
-          "id": "roads", 
-          "type": "line", 
-          "source": "openfreemap", 
-          "source-layer": "transportation", 
-          "paint": { "line-color": "#38bdf8", "line-opacity": 0.6 } 
-        }
-      ]
-    }
-  };
-
-  // 2. INITIALIZE MAP
+  // 1. INITIALIZE MAP WITH SUBFOLDER STYLE
   const map = new maplibregl.Map({
     container: 'map',
-    style: customStyles.roads,
-    center: [-0.1276, 51.5074],
-    zoom: 12
+    style: 'styles/mapaction-reference.json',
+    center: [15, 7], // Centered over West/Central Africa for macro view
+    zoom: 3
   });
 
   map.addControl(new maplibregl.NavigationControl());
@@ -265,8 +159,9 @@
     renderGeoJsonOverlays();
   });
 
+  // 2. TOGGLE BETWEEN SUBFOLDER JSON AND REMOTE STYLES
   document.getElementById('style-select').addEventListener('change', (e) => {
-    map.setStyle(customStyles[e.target.value]);
+    map.setStyle(e.target.value);
   });
 
   document.getElementById('geojson-input').addEventListener('change', (e) => {
