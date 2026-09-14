@@ -1,0 +1,90 @@
+{
+  "version": 8,
+  "name": "Country Overview",
+  "sources": {
+    "openfreemap": {
+      "type": "vector",
+      "url": "https://tiles.openfreemap.org/planet/latest.json"
+    }
+  },
+  "glyphs": "https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf",
+  "layers": [
+    { "id": "background", "type": "background", "paint": { "background-color": "#fdfbf7" } },
+    { "id": "water", "type": "fill", "source": "openfreemap", "source-layer": "water", "paint": { "fill-color": "#b2d2e8" } },
+    { "id": "waterway", "type": "line", "source": "openfreemap", "source-layer": "waterway", "paint": { "line-color": "#8ebbd9", "line-width": ["interpolate", ["linear"], ["zoom"], 4, 0.5, 12, 3] } },
+    
+    {
+      "id": "admin-2-district",
+      "type": "line",
+      "source": "openfreemap",
+      "source-layer": "boundary",
+      "filter": ["==", "admin_level", 4],
+      "minzoom": 7,
+      "paint": { "line-color": "#a0aec0", "line-width": 0.8, "line-dasharray": [2, 2] }
+    },
+    {
+      "id": "admin-1-province",
+      "type": "line",
+      "source": "openfreemap",
+      "source-layer": "boundary",
+      "filter": ["==", "admin_level", 3],
+      "minzoom": 4,
+      "paint": { "line-color": "#718096", "line-width": 1.2, "line-dasharray": [4, 2] }
+    },
+    {
+      "id": "admin-0-country",
+      "type": "line",
+      "source": "openfreemap",
+      "source-layer": "boundary",
+      "filter": ["==", "admin_level", 2],
+      "paint": { "line-color": "#2d3748", "line-width": ["interpolate", ["linear"], ["zoom"], 2, 1, 10, 2.5] }
+    },
+
+    {
+      "id": "settlements-dots",
+      "type": "circle",
+      "source": "openfreemap",
+      "source-layer": "place",
+      "filter": ["all", ["in", "class", "city", "town", "village"], ["!=", "capital", 2]],
+      "paint": {
+        "circle-color": "#1a202c",
+        "circle-radius": [
+          "interpolate", ["linear"], ["zoom"],
+          3, ["match", ["get", "capital"], 1, 4, 2],
+          8, ["match", ["get", "class"], "city", 6, "town", 4, "village", 2, 2]
+        ],
+        "circle-stroke-width": 1,
+        "circle-stroke-color": "#ffffff"
+      }
+    },
+    {
+      "id": "settlements-labels",
+      "type": "symbol",
+      "source": "openfreemap",
+      "source-layer": "place",
+      "filter": ["in", "class", "city", "town"],
+      "layout": {
+        "text-field": "{name:latin}",
+        "text-font": ["Noto Sans Regular"],
+        "text-size": ["interpolate", ["linear"], ["zoom"], 4, 10, 10, 14],
+        "text-offset": [0.5, 0],
+        "text-anchor": "left"
+      },
+      "paint": { "text-color": "#2d3748", "text-halo-color": "#ffffff", "text-halo-width": 2 }
+    },
+    {
+      "id": "capitals-star",
+      "type": "symbol",
+      "source": "openfreemap",
+      "source-layer": "place",
+      "filter": ["==", "capital", 2],
+      "layout": {
+        "text-field": "★ {name:latin}",
+        "text-font": ["Noto Sans Bold"],
+        "text-size": ["interpolate", ["linear"], ["zoom"], 2, 12, 8, 18],
+        "text-anchor": "left"
+      },
+      "paint": { "text-color": "#000000", "text-halo-color": "#ffffff", "text-halo-width": 2.5 }
+    }
+  ]
+}
