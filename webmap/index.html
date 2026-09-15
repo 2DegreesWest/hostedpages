@@ -38,7 +38,7 @@
     .brand-logo {
       height: 42px;
       width: auto;
-      mix-blend-mode: multiply; 
+      display: block;
     }
 
     #map {
@@ -121,13 +121,12 @@
       box-shadow: 0 4px 12px rgba(0,0,0,0.2);
       width: 220px;
       border: 1px solid #cbd5e0;
-      display: none; /* Collapsed by default */
+      display: none;
     }
 
     .legend-panel h4 { margin: 0 0 8px 0; font-size: 14px; color: #002b66; }
     .legend-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 12px; color: #2d3748; }
     .legend-icon-img { width: 18px; height: 18px; object-fit: contain; }
-    .legend-color-box { width: 14px; height: 14px; border-radius: 3px; display: inline-block; }
   </style>
 </head>
 <body>
@@ -153,20 +152,12 @@
 
   <div class="control-group">
     <label>Data Layers (Folder Preloads):</label>
-    <div id="preloaded-layer-toggles"></div>
+    <div id="preloaded-layer-toggles">Checking repository...</div>
   </div>
 
   <div class="control-group">
     <label>Upload Custom GeoJSON:</label>
     <input type="file" id="geojson-input" accept=".geojson, .json" />
-  </div>
-
-  <div class="control-group">
-    <label>Custom Overlay Styling:</label>
-    <div style="display: flex; gap: 8px;">
-      <input type="color" id="geojson-color" value="#e53e3e">
-      <input type="range" id="geojson-opacity" min="0.1" max="1" step="0.1" value="0.7">
-    </div>
   </div>
 </div>
 
@@ -184,8 +175,9 @@
 </div>
 
 <script>
-  // 1. CONFIGURE PRELOADED GEOJSON LAYERS
-  // Place matching .geojson files in /geojson and .svg icons in /icons
+  // =========================================================
+  // UPDATE FILE PATHS TO MATCH YOUR REPOSITORY EXACTLY
+  // =========================================================
   const PRELOADED_LAYERS = [
     { id: 'hospitals', name: 'Hospitals / Health', file: 'geojson/hospitals.geojson', icon: 'icons/hospitals.svg' },
     { id: 'airports', name: 'Airports & Hubs', file: 'geojson/airports.geojson', icon: 'icons/airports.svg' },
@@ -197,35 +189,57 @@
   const map = new maplibregl.Map({
     container: 'map',
     style: 'styles/mapaction-reference.json',
-    center: [15, 7], 
-    zoom: 3
+    center: [0, 0], 
+    zoom: 2
   });
 
   map.addControl(new maplibregl.NavigationControl());
 
-  // 2. AUTO-LOAD SVG ICONS AND GEOJSON DATA
+  // Safe SVG image loader for MapLibre
+  async function loadSvgIcon(id, iconPath) {
+    try {
+      const resp = await fetch(iconPath);
+      if (!resp.ok) return false;
+      const svgText = await resp.text();
+      const svgBlob = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgText);
+      
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+          if (!map.hasImage(`icon-${id}`)) {
+            map.addImage(`icon-${id}`, img);
+          }
+          resolve(true);
+        };
+        img.onerror = () => resolve(false);
+        img.src = svgBlob;
+      });
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // 1. FETCH ALL GEOJSON FILES ON STARTUP
   map.on('load', async () => {
     for (const layerConfig of PRELOADED_LAYERS) {
-      activeLayersState[layerConfig.id] = { ...layerConfig, enabled: false, loaded: false };
+      activeLayersState[layerConfig.id] = { ...layerConfig, enabled: false, loaded: false, hasSvg: false };
 
-      // Pre-register SVG icons into MapLibre
-      try {
-        const image = await map.loadImage(layerConfig.icon);
-        map.addImage(`icon-${layerConfig.id}`, image.data);
-      } catch (err) {
-        console.log(`No custom icon found for ${layerConfig.id}, fallback styling will apply.`);
-      }
+      // Try loading SVG Icon
+      const svgSuccess = await loadSvgIcon(layerConfig.id, layerConfig.icon);
+      activeLayersState[layerConfig.id].hasSvg = svgSuccess;
 
-      // Fetch GeoJSON file
+      // Fetch GeoJSON
       try {
         const response = await fetch(layerConfig.file);
         if (response.ok) {
           const geojsonData = await response.json();
           activeLayersState[layerConfig.id].data = geojsonData;
           activeLayersState[layerConfig.id].loaded = true;
+        } else {
+          console.error(`Failed to load ${layerConfig.file}: HTTP ${response.status}`);
         }
       } catch (err) {
-        console.warn(`Could not load ${layerConfig.file}`);
+        console.error(`Error loading GeoJSON file (${layerConfig.file}):`, err);
       }
     }
 
@@ -233,56 +247,84 @@
     updateLegend();
   });
 
-  // Re-apply layers on basemap style changes
+  // Re-apply enabled layers whenever the basemap style changes
   map.on('styledata', () => {
     Object.keys(activeLayersState).forEach(layerId => {
       if (activeLayersState[layerId].enabled) {
-        addGeoJsonToMap(layerId);
+        addGeoJsonToMap(layerId, false); // Don't snap bounds again on style change
       }
     });
   });
 
-  // 3. LAYER TOGGLE LOGIC
+  // 2. RENDER CONTROL PANEL TOGGLES
   function buildLayerTogglesUI() {
     const container = document.getElementById('preloaded-layer-toggles');
     container.innerHTML = '';
 
     Object.keys(activeLayersState).forEach(id => {
       const layer = activeLayersState[id];
-      if (!layer.loaded) return;
-
       const item = document.createElement('div');
       item.className = 'toggle-item';
-      item.innerHTML = `
-        <label for="toggle-${id}">${layer.name}</label>
-        <input type="checkbox" id="toggle-${id}" ${layer.enabled ? 'checked' : ''}>
-      `;
 
-      item.querySelector('input').addEventListener('change', (e) => {
-        layer.enabled = e.target.checked;
-        if (layer.enabled) {
-          addGeoJsonToMap(id);
-        } else {
-          removeGeoJsonFromMap(id);
-        }
-        updateLegend();
-      });
+      if (layer.loaded) {
+        item.innerHTML = `
+          <label for="toggle-${id}">${layer.name}</label>
+          <input type="checkbox" id="toggle-${id}" ${layer.enabled ? 'checked' : ''}>
+        `;
+
+        item.querySelector('input').addEventListener('change', (e) => {
+          layer.enabled = e.target.checked;
+          if (layer.enabled) {
+            addGeoJsonToMap(id, true); // Snap camera to dataset bounds on toggle
+          } else {
+            removeGeoJsonFromMap(id);
+          }
+          updateLegend();
+        });
+      } else {
+        item.innerHTML = `
+          <span style="color:#a0aec0; text-decoration:line-through;">${layer.name}</span>
+          <span style="font-size:10px; color:#e53e3e;">File not found</span>
+        `;
+      }
 
       container.appendChild(item);
     });
   }
 
-  function addGeoJsonToMap(layerId) {
+  // 3. ADD LAYERS TO MAP (SUPPORTING POINTS, LINES, & POLYGONS)
+  function addGeoJsonToMap(layerId, zoomToData = false) {
     const layer = activeLayersState[layerId];
     if (!layer || !layer.data) return;
 
+    // Add Source if not present
     if (!map.getSource(layerId)) {
       map.addSource(layerId, { type: 'geojson', data: layer.data });
     }
 
-    const hasIcon = map.hasImage(`icon-${layerId}`);
+    const hasIcon = layer.hasSvg && map.hasImage(`icon-${layerId}`);
 
-    // Add Symbol Layer for Points with Icon
+    // Polygons
+    if (!map.getLayer(layerId + '-fill')) {
+      map.addLayer({
+        id: layerId + '-fill',
+        type: 'fill',
+        source: layerId,
+        paint: { 'fill-color': '#ff4d4d', 'fill-opacity': 0.4 }
+      });
+    }
+
+    // Lines / Outlines
+    if (!map.getLayer(layerId + '-line')) {
+      map.addLayer({
+        id: layerId + '-line',
+        type: 'line',
+        source: layerId,
+        paint: { 'line-color': '#cc0000', 'line-width': 2 }
+      });
+    }
+
+    // Point Markers (SVG Symbol or Fallback Circle)
     if (hasIcon && !map.getLayer(layerId + '-symbol')) {
       map.addLayer({
         id: layerId + '-symbol',
@@ -296,35 +338,40 @@
         }
       });
     } else if (!map.getLayer(layerId + '-circle')) {
-      // Fallback Point Circle
       map.addLayer({
         id: layerId + '-circle',
         type: 'circle',
         source: layerId,
         filter: ['==', '$type', 'Point'],
-        paint: { 'circle-color': '#e53e3e', 'circle-radius': 6 }
+        paint: { 
+          'circle-color': '#e53e3e', 
+          'circle-radius': 7, 
+          'circle-stroke-width': 2, 
+          'circle-stroke-color': '#ffffff' 
+        }
       });
     }
 
-    // Add Polygon Fill
-    if (!map.getLayer(layerId + '-fill')) {
-      map.addLayer({
-        id: layerId + '-fill',
-        type: 'fill',
-        source: layerId,
-        filter: ['==', '$type', 'Polygon'],
-        paint: { 'fill-color': '#e53e3e', 'fill-opacity': 0.4 }
-      });
-    }
-
-    // Add Line/Outline
-    if (!map.getLayer(layerId + '-line')) {
-      map.addLayer({
-        id: layerId + '-line',
-        type: 'line',
-        source: layerId,
-        paint: { 'line-color': '#e53e3e', 'line-width': 2 }
-      });
+    // Auto-center camera onto dataset bounds
+    if (zoomToData && layer.data.features && layer.data.features.length > 0) {
+      try {
+        const bounds = new maplibregl.LngLatBounds();
+        layer.data.features.forEach(feature => {
+          if (feature.geometry.type === 'Point') {
+            bounds.extend(feature.geometry.coordinates);
+          } else if (feature.geometry.type === 'Polygon' || feature.geometry.type === 'MultiPolygon') {
+            const coords = feature.geometry.coordinates.flat(2);
+            coords.forEach(coord => {
+              if (Array.isArray(coord) && coord.length >= 2) bounds.extend(coord);
+            });
+          }
+        });
+        if (!bounds.isEmpty()) {
+          map.fitBounds(bounds, { padding: 80, maxZoom: 14 });
+        }
+      } catch (e) {
+        console.warn("Could not calculate bounds for zoom", e);
+      }
     }
   }
 
@@ -336,7 +383,7 @@
     if (map.getSource(layerId)) map.removeSource(layerId);
   }
 
-  // 4. LEGEND CONTROL
+  // 4. LEGEND & INTERACTION CONTROLS
   function toggleLegend() {
     const legend = document.getElementById('legend-panel');
     legend.style.display = legend.style.display === 'block' ? 'none' : 'block';
@@ -364,11 +411,11 @@
     });
 
     if (activeCount === 0) {
-      content.innerHTML = '<div style="font-size:12px; color:#a0aec0;">No custom layers enabled</div>';
+      content.innerHTML = '<div style="font-size:12px; color:#a0aec0;">No active layers</div>';
     }
   }
 
-  // Style selector switch
+  // Basemap Dropdown Listener
   document.getElementById('style-select').addEventListener('change', (e) => {
     map.setStyle(e.target.value);
   });
