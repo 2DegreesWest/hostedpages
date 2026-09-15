@@ -152,7 +152,7 @@
 
   <div class="control-group">
     <label>Data Layers (Folder Preloads):</label>
-    <div id="preloaded-layer-toggles">Checking repository...</div>
+    <div id="preloaded-layer-toggles">Loading layers...</div>
   </div>
 
   <div class="control-group">
@@ -176,12 +176,14 @@
 
 <script>
   // =========================================================
-  // UPDATE FILE PATHS TO MATCH YOUR REPOSITORY EXACTLY
+  // HARDCODED TESTING LAYERS
+  // Matches geojson/<name>.geojson and icons/<name>.svg
   // =========================================================
   const PRELOADED_LAYERS = [
-    { id: 'hospitals', name: 'Hospitals / Health', file: 'geojson/hospitals.geojson', icon: 'icons/hospitals.svg' },
-    { id: 'airports', name: 'Airports & Hubs', file: 'geojson/airports.geojson', icon: 'icons/airports.svg' },
-    { id: 'flood_zones', name: 'Flood Risk Areas', file: 'geojson/flood_zones.geojson', icon: 'icons/flood_zones.svg' }
+    { id: 'airport', name: 'Airports', file: 'geojson/airport.geojson', icon: 'icons/airport.svg' },
+    { id: 'camp', name: 'IDP / Refugee Camps', file: 'geojson/camp.geojson', icon: 'icons/camp.svg' },
+    { id: 'hospital', name: 'Hospitals & Health', file: 'geojson/hospital.geojson', icon: 'icons/hospital.svg' },
+    { id: 'road-closed', name: 'Road Closures', file: 'geojson/road-closed.geojson', icon: 'icons/road-closed.svg' }
   ];
 
   const activeLayersState = {};
@@ -195,7 +197,7 @@
 
   map.addControl(new maplibregl.NavigationControl());
 
-  // Safe SVG image loader for MapLibre
+  // Helper to safely convert SVG files into MapLibre icons
   async function loadSvgIcon(id, iconPath) {
     try {
       const resp = await fetch(iconPath);
@@ -219,16 +221,16 @@
     }
   }
 
-  // 1. FETCH ALL GEOJSON FILES ON STARTUP
+  // 1. FETCH ALL GEOJSON FILES AND PREPARE STATE ON STARTUP
   map.on('load', async () => {
     for (const layerConfig of PRELOADED_LAYERS) {
       activeLayersState[layerConfig.id] = { ...layerConfig, enabled: false, loaded: false, hasSvg: false };
 
-      // Try loading SVG Icon
+      // Load matching SVG Icon
       const svgSuccess = await loadSvgIcon(layerConfig.id, layerConfig.icon);
       activeLayersState[layerConfig.id].hasSvg = svgSuccess;
 
-      // Fetch GeoJSON
+      // Fetch GeoJSON file
       try {
         const response = await fetch(layerConfig.file);
         if (response.ok) {
@@ -236,10 +238,10 @@
           activeLayersState[layerConfig.id].data = geojsonData;
           activeLayersState[layerConfig.id].loaded = true;
         } else {
-          console.error(`Failed to load ${layerConfig.file}: HTTP ${response.status}`);
+          console.error(`Failed to load ${layerConfig.file}: HTTP status ${response.status}`);
         }
       } catch (err) {
-        console.error(`Error loading GeoJSON file (${layerConfig.file}):`, err);
+        console.error(`Error loading file: ${layerConfig.file}`, err);
       }
     }
 
@@ -251,12 +253,12 @@
   map.on('styledata', () => {
     Object.keys(activeLayersState).forEach(layerId => {
       if (activeLayersState[layerId].enabled) {
-        addGeoJsonToMap(layerId, false); // Don't snap bounds again on style change
+        addGeoJsonToMap(layerId, false); // Keep camera position intact
       }
     });
   });
 
-  // 2. RENDER CONTROL PANEL TOGGLES
+  // 2. BUILD CONTROL PANEL TOGGLES UI
   function buildLayerTogglesUI() {
     const container = document.getElementById('preloaded-layer-toggles');
     container.innerHTML = '';
@@ -275,7 +277,7 @@
         item.querySelector('input').addEventListener('change', (e) => {
           layer.enabled = e.target.checked;
           if (layer.enabled) {
-            addGeoJsonToMap(id, true); // Snap camera to dataset bounds on toggle
+            addGeoJsonToMap(id, true); // Snap camera to dataset bounds on enable
           } else {
             removeGeoJsonFromMap(id);
           }
@@ -292,12 +294,12 @@
     });
   }
 
-  // 3. ADD LAYERS TO MAP (SUPPORTING POINTS, LINES, & POLYGONS)
+  // 3. ADD LAYERS TO MAP WITH SUPPORT FOR POINTS, LINES, AND POLYGONS
   function addGeoJsonToMap(layerId, zoomToData = false) {
     const layer = activeLayersState[layerId];
     if (!layer || !layer.data) return;
 
-    // Add Source if not present
+    // Create GeoJSON source if it doesn't exist
     if (!map.getSource(layerId)) {
       map.addSource(layerId, { type: 'geojson', data: layer.data });
     }
@@ -314,17 +316,17 @@
       });
     }
 
-    // Lines / Outlines
+    // Lines & Outlines
     if (!map.getLayer(layerId + '-line')) {
       map.addLayer({
         id: layerId + '-line',
         type: 'line',
         source: layerId,
-        paint: { 'line-color': '#cc0000', 'line-width': 2 }
+        paint: { 'line-color': '#cc0000', 'line-width': 2.5 }
       });
     }
 
-    // Point Markers (SVG Symbol or Fallback Circle)
+    // Point Features (Render using SVG icon or fallback circle)
     if (hasIcon && !map.getLayer(layerId + '-symbol')) {
       map.addLayer({
         id: layerId + '-symbol',
@@ -352,13 +354,15 @@
       });
     }
 
-    // Auto-center camera onto dataset bounds
+    // Automatically zoom camera to fit features when checked
     if (zoomToData && layer.data.features && layer.data.features.length > 0) {
       try {
         const bounds = new maplibregl.LngLatBounds();
         layer.data.features.forEach(feature => {
           if (feature.geometry.type === 'Point') {
             bounds.extend(feature.geometry.coordinates);
+          } else if (feature.geometry.type === 'LineString') {
+            feature.geometry.coordinates.forEach(coord => bounds.extend(coord));
           } else if (feature.geometry.type === 'Polygon' || feature.geometry.type === 'MultiPolygon') {
             const coords = feature.geometry.coordinates.flat(2);
             coords.forEach(coord => {
@@ -370,7 +374,7 @@
           map.fitBounds(bounds, { padding: 80, maxZoom: 14 });
         }
       } catch (e) {
-        console.warn("Could not calculate bounds for zoom", e);
+        console.warn("Could not calculate bounds", e);
       }
     }
   }
@@ -415,7 +419,7 @@
     }
   }
 
-  // Basemap Dropdown Listener
+  // Basemap Dropdown Switcher Listener
   document.getElementById('style-select').addEventListener('change', (e) => {
     map.setStyle(e.target.value);
   });
