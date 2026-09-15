@@ -1,0 +1,1 @@
+{"type":"FeatureCollection","features":[{"type":"Feature","id":35,"geometry":{"type":"Point","coordinates":[-1.8629804219999642,51.637300526000047]},"properties":{"OBJECTID":35,"name":"Test Point","description":"Inspection Feature e.g. drainage ditch","imageURL":null,"siteURL":null,"Category":"InspectionFeature"}}]}
