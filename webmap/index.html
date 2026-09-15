@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MapAction Lightweight Mapping Application</title>
+  <title>MapAction Mapping Application</title>
 
   <!-- MapLibre GL JS CSS and JS -->
   <script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
@@ -19,7 +19,7 @@
       overflow: hidden;
     }
 
-    /* Top White Header Bar */
+    /* Header Bar */
     .header-bar {
       position: absolute;
       top: 0;
@@ -35,15 +35,12 @@
       z-index: 20;
     }
 
-    /* Logo Styling */
     .brand-logo {
       height: 42px;
       width: auto;
-      /* Blends out the black background of the image onto the white header */
       mix-blend-mode: multiply; 
     }
 
-    /* Map takes up remaining screen area */
     #map {
       position: absolute;
       top: 60px;
@@ -51,7 +48,7 @@
       width: 100%;
     }
 
-    /* Floating Panel positioned below top bar */
+    /* Floating Controls Panel */
     .panel {
       position: absolute;
       top: 75px;
@@ -64,6 +61,8 @@
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
       width: 280px;
       border: 1px solid #edf2f7;
+      max-height: calc(100vh - 110px);
+      overflow-y: auto;
     }
 
     .panel h3 { margin: 0 0 12px 0; font-size: 15px; color: #1a202c; }
@@ -79,69 +78,122 @@
       font-size: 13px;
     }
 
-    #layer-list {
-      max-height: 120px;
-      overflow-y: auto;
-      margin-top: 6px;
+    /* Layer Toggle Styles */
+    .toggle-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 13px;
+      padding: 6px 0;
+      border-bottom: 1px solid #edf2f7;
+    }
+    .toggle-item label { margin: 0; font-weight: normal; cursor: pointer; }
+
+    /* Collapsible Legend Button & Panel */
+    .legend-toggle-btn {
+      position: absolute;
+      bottom: 25px;
+      right: 15px;
+      z-index: 15;
+      background: #002b66;
+      color: #ffffff;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 600;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
     }
 
-    .layer-item {
-      font-size: 12px;
-      background: #edf2f7;
-      padding: 4px 8px;
-      border-radius: 4px;
-      margin-bottom: 4px;
-      word-break: break-all;
+    .legend-panel {
+      position: absolute;
+      bottom: 70px;
+      right: 15px;
+      z-index: 15;
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(6px);
+      padding: 14px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+      width: 220px;
+      border: 1px solid #cbd5e0;
+      display: none; /* Collapsed by default */
     }
+
+    .legend-panel h4 { margin: 0 0 8px 0; font-size: 14px; color: #002b66; }
+    .legend-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 12px; color: #2d3748; }
+    .legend-icon-img { width: 18px; height: 18px; object-fit: contain; }
+    .legend-color-box { width: 14px; height: 14px; border-radius: 3px; display: inline-block; }
   </style>
 </head>
 <body>
 
-<!-- MAPACTION TOP HEADER BAR -->
 <header class="header-bar">
   <img src="logo/Logo.png" alt="MapAction Logo" class="brand-logo" />
 </header>
 
-<!-- FLOATING CONTROL PANEL -->
 <div class="panel">
   <h3>Map Controls</h3>
   
   <div class="control-group">
     <label for="style-select">Basemap Focus:</label>
-     <select id="style-select">
+    <select id="style-select">
       <option value="styles/mapaction-reference.json">MapAction Reference</option>
       <option value="styles/country-overview.json">Country Overview</option>
       <option value="styles/transport-theme.json">Transport & Logistics</option>
       <option value="styles/topographic.json">Topographic (DEM)</option>
       <option value="styles/osm-basic.json">OSM Basic</option>
-      <option value="styles/aerial-imagery.json">Aerial Imagery (Satellite)</option>
+      <option value="styles/aerial-imagery.json">Aerial Imagery</option>
     </select>
   </div>
 
   <div class="control-group">
-    <label>Load Custom GeoJSON File:</label>
+    <label>Data Layers (Folder Preloads):</label>
+    <div id="preloaded-layer-toggles"></div>
+  </div>
+
+  <div class="control-group">
+    <label>Upload Custom GeoJSON:</label>
     <input type="file" id="geojson-input" accept=".geojson, .json" />
   </div>
 
   <div class="control-group">
-    <label>GeoJSON Overlay Style:</label>
+    <label>Custom Overlay Styling:</label>
     <div style="display: flex; gap: 8px;">
       <input type="color" id="geojson-color" value="#e53e3e">
       <input type="range" id="geojson-opacity" min="0.1" max="1" step="0.1" value="0.7">
     </div>
   </div>
-
-  <div class="control-group">
-    <label>Active Overlay Layers:</label>
-    <div id="layer-list"></div>
-  </div>
 </div>
 
-<!-- MAP CONTAINER -->
+<!-- Map Container -->
 <div id="map"></div>
 
+<!-- Collapsible Legend Widget -->
+<button class="legend-toggle-btn" onclick="toggleLegend()">
+  <span>🗺️</span> Legend
+</button>
+
+<div class="legend-panel" id="legend-panel">
+  <h4>Map Legend</h4>
+  <div id="legend-content"></div>
+</div>
+
 <script>
-  // 1. INITIALIZE MAP USING SUBFOLDER STYLE
+  // 1. CONFIGURE PRELOADED GEOJSON LAYERS
+  // Place matching .geojson files in /geojson and .svg icons in /icons
+  const PRELOADED_LAYERS = [
+    { id: 'hospitals', name: 'Hospitals / Health', file: 'geojson/hospitals.geojson', icon: 'icons/hospitals.svg' },
+    { id: 'airports', name: 'Airports & Hubs', file: 'geojson/airports.geojson', icon: 'icons/airports.svg' },
+    { id: 'flood_zones', name: 'Flood Risk Areas', file: 'geojson/flood_zones.geojson', icon: 'icons/flood_zones.svg' }
+  ];
+
+  const activeLayersState = {};
+
   const map = new maplibregl.Map({
     container: 'map',
     style: 'styles/mapaction-reference.json',
@@ -151,114 +203,175 @@
 
   map.addControl(new maplibregl.NavigationControl());
 
-  // Store for retaining uploaded GeoJSON data across style changes
-  const loadedGeoJSONs = {};
+  // 2. AUTO-LOAD SVG ICONS AND GEOJSON DATA
+  map.on('load', async () => {
+    for (const layerConfig of PRELOADED_LAYERS) {
+      activeLayersState[layerConfig.id] = { ...layerConfig, enabled: false, loaded: false };
 
-  // 2. RENDER GEOJSON OVERLAYS
-  function renderGeoJsonOverlays() {
-    Object.keys(loadedGeoJSONs).forEach(layerId => {
-      const data = loadedGeoJSONs[layerId].data;
-      const color = document.getElementById('geojson-color').value;
-      const opacity = parseFloat(document.getElementById('geojson-opacity').value);
-
-      if (!map.getSource(layerId)) {
-        map.addSource(layerId, { type: 'geojson', data: data });
+      // Pre-register SVG icons into MapLibre
+      try {
+        const image = await map.loadImage(layerConfig.icon);
+        map.addImage(`icon-${layerConfig.id}`, image.data);
+      } catch (err) {
+        console.log(`No custom icon found for ${layerConfig.id}, fallback styling will apply.`);
       }
 
-      if (!map.getLayer(layerId + '-fill')) {
-        map.addLayer({
-          id: layerId + '-fill',
-          type: 'fill',
-          source: layerId,
-          filter: ['==', '$type', 'Polygon'],
-          paint: { 'fill-color': color, 'fill-opacity': opacity }
-        });
+      // Fetch GeoJSON file
+      try {
+        const response = await fetch(layerConfig.file);
+        if (response.ok) {
+          const geojsonData = await response.json();
+          activeLayersState[layerConfig.id].data = geojsonData;
+          activeLayersState[layerConfig.id].loaded = true;
+        }
+      } catch (err) {
+        console.warn(`Could not load ${layerConfig.file}`);
       }
+    }
 
-      if (!map.getLayer(layerId + '-line')) {
-        map.addLayer({
-          id: layerId + '-line',
-          type: 'line',
-          source: layerId,
-          paint: { 'line-color': color, 'line-width': 3 }
-        });
-      }
+    buildLayerTogglesUI();
+    updateLegend();
+  });
 
-      if (!map.getLayer(layerId + '-circle')) {
-        map.addLayer({
-          id: layerId + '-circle',
-          type: 'circle',
-          source: layerId,
-          filter: ['==', '$type', 'Point'],
-          paint: { 'circle-color': color, 'circle-radius': 6, 'circle-opacity': opacity }
-        });
+  // Re-apply layers on basemap style changes
+  map.on('styledata', () => {
+    Object.keys(activeLayersState).forEach(layerId => {
+      if (activeLayersState[layerId].enabled) {
+        addGeoJsonToMap(layerId);
       }
+    });
+  });
+
+  // 3. LAYER TOGGLE LOGIC
+  function buildLayerTogglesUI() {
+    const container = document.getElementById('preloaded-layer-toggles');
+    container.innerHTML = '';
+
+    Object.keys(activeLayersState).forEach(id => {
+      const layer = activeLayersState[id];
+      if (!layer.loaded) return;
+
+      const item = document.createElement('div');
+      item.className = 'toggle-item';
+      item.innerHTML = `
+        <label for="toggle-${id}">${layer.name}</label>
+        <input type="checkbox" id="toggle-${id}" ${layer.enabled ? 'checked' : ''}>
+      `;
+
+      item.querySelector('input').addEventListener('change', (e) => {
+        layer.enabled = e.target.checked;
+        if (layer.enabled) {
+          addGeoJsonToMap(id);
+        } else {
+          removeGeoJsonFromMap(id);
+        }
+        updateLegend();
+      });
+
+      container.appendChild(item);
     });
   }
 
-  // Preserve GeoJSON overlays when basemap style changes
-  map.on('styledata', () => {
-    renderGeoJsonOverlays();
-  });
+  function addGeoJsonToMap(layerId) {
+    const layer = activeLayersState[layerId];
+    if (!layer || !layer.data) return;
 
-  // 3. SWITCH BASEMAP STYLES
+    if (!map.getSource(layerId)) {
+      map.addSource(layerId, { type: 'geojson', data: layer.data });
+    }
+
+    const hasIcon = map.hasImage(`icon-${layerId}`);
+
+    // Add Symbol Layer for Points with Icon
+    if (hasIcon && !map.getLayer(layerId + '-symbol')) {
+      map.addLayer({
+        id: layerId + '-symbol',
+        type: 'symbol',
+        source: layerId,
+        filter: ['==', '$type', 'Point'],
+        layout: {
+          'icon-image': `icon-${layerId}`,
+          'icon-size': 0.8,
+          'icon-allow-overlap': true
+        }
+      });
+    } else if (!map.getLayer(layerId + '-circle')) {
+      // Fallback Point Circle
+      map.addLayer({
+        id: layerId + '-circle',
+        type: 'circle',
+        source: layerId,
+        filter: ['==', '$type', 'Point'],
+        paint: { 'circle-color': '#e53e3e', 'circle-radius': 6 }
+      });
+    }
+
+    // Add Polygon Fill
+    if (!map.getLayer(layerId + '-fill')) {
+      map.addLayer({
+        id: layerId + '-fill',
+        type: 'fill',
+        source: layerId,
+        filter: ['==', '$type', 'Polygon'],
+        paint: { 'fill-color': '#e53e3e', 'fill-opacity': 0.4 }
+      });
+    }
+
+    // Add Line/Outline
+    if (!map.getLayer(layerId + '-line')) {
+      map.addLayer({
+        id: layerId + '-line',
+        type: 'line',
+        source: layerId,
+        paint: { 'line-color': '#e53e3e', 'line-width': 2 }
+      });
+    }
+  }
+
+  function removeGeoJsonFromMap(layerId) {
+    ['fill', 'line', 'circle', 'symbol'].forEach(type => {
+      const fullId = `${layerId}-${type}`;
+      if (map.getLayer(fullId)) map.removeLayer(fullId);
+    });
+    if (map.getSource(layerId)) map.removeSource(layerId);
+  }
+
+  // 4. LEGEND CONTROL
+  function toggleLegend() {
+    const legend = document.getElementById('legend-panel');
+    legend.style.display = legend.style.display === 'block' ? 'none' : 'block';
+  }
+
+  function updateLegend() {
+    const content = document.getElementById('legend-content');
+    content.innerHTML = '';
+
+    let activeCount = 0;
+
+    Object.keys(activeLayersState).forEach(id => {
+      const layer = activeLayersState[id];
+      if (layer.enabled) {
+        activeCount++;
+        const row = document.createElement('div');
+        row.className = 'legend-row';
+        
+        row.innerHTML = `
+          <img src="${layer.icon}" class="legend-icon-img" onError="this.style.display='none';">
+          <span>${layer.name}</span>
+        `;
+        content.appendChild(row);
+      }
+    });
+
+    if (activeCount === 0) {
+      content.innerHTML = '<div style="font-size:12px; color:#a0aec0;">No custom layers enabled</div>';
+    }
+  }
+
+  // Style selector switch
   document.getElementById('style-select').addEventListener('change', (e) => {
     map.setStyle(e.target.value);
   });
-
-  // 4. LOCAL GEOJSON UPLOADER
-  document.getElementById('geojson-input').addEventListener('change', (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      try {
-        const parsedGeoJSON = JSON.parse(event.target.result);
-        const layerId = 'user-layer-' + Date.now();
-        loadedGeoJSONs[layerId] = { name: file.name, data: parsedGeoJSON };
-        
-        renderGeoJsonOverlays();
-        updateUI();
-      } catch (err) {
-        alert('Invalid GeoJSON format.');
-      }
-    };
-    reader.readAsText(file);
-  });
-
-  document.getElementById('geojson-color').addEventListener('input', updateLayerAppearance);
-  document.getElementById('geojson-opacity').addEventListener('input', updateLayerAppearance);
-
-  function updateLayerAppearance() {
-    const color = document.getElementById('geojson-color').value;
-    const opacity = parseFloat(document.getElementById('geojson-opacity').value);
-
-    Object.keys(loadedGeoJSONs).forEach(layerId => {
-      if (map.getLayer(layerId + '-fill')) {
-        map.setPaintProperty(layerId + '-fill', 'fill-color', color);
-        map.setPaintProperty(layerId + '-fill', 'fill-opacity', opacity);
-      }
-      if (map.getLayer(layerId + '-line')) {
-        map.setPaintProperty(layerId + '-line', 'line-color', color);
-      }
-      if (map.getLayer(layerId + '-circle')) {
-        map.setPaintProperty(layerId + '-circle', 'circle-color', color);
-        map.setPaintProperty(layerId + '-circle', 'circle-opacity', opacity);
-      }
-    });
-  }
-
-  function updateUI() {
-    const list = document.getElementById('layer-list');
-    list.innerHTML = '';
-    Object.keys(loadedGeoJSONs).forEach(key => {
-      const item = document.createElement('div');
-      item.className = 'layer-item';
-      item.innerText = loadedGeoJSONs[key].name;
-      list.appendChild(item);
-    });
-  }
 </script>
 </body>
 </html>
