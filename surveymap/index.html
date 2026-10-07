@@ -11,7 +11,7 @@
   html, body { height:100%; margin:0; }
   body { font:15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; color:var(--ink); }
   #map { position:absolute; inset:0; }
-  .panel { position:absolute; top:12px; left:12px; width:260px; max-width:calc(100% - 24px);
+  .panel { position:absolute; top:12px; left:12px; z-index:2; width:270px; max-width:calc(100% - 24px);
     background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:14px 16px; }
   h1 { font-size:16px; margin:0 0 2px; font-weight:650; }
   .sub { color:var(--muted); margin:0 0 12px; font-size:13px; }
@@ -19,10 +19,12 @@
   .ramp.colour { background:linear-gradient(to right,#b2182b,#f4a582,#f7f7f7,#92c5de,#2166ac); }
   .scale { display:flex; justify-content:space-between; font-size:12px; color:var(--muted); margin:4px 0 6px; }
   label { display:block; font-size:13px; color:var(--muted); margin:12px 0 4px; }
+  label.check { display:flex; gap:8px; align-items:center; color:var(--ink); }
   input[type=range] { width:100%; accent-color:var(--accent); }
   select { font:inherit; color:var(--ink); background:#1d3340; border:1px solid var(--line);
     border-radius:4px; padding:6px 8px; width:100%; }
   select:focus-visible, input:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+  #coords { font-size:12px; color:var(--muted); margin:6px 0 0; word-break:break-all; }
 </style>
 </head>
 <body>
@@ -32,34 +34,40 @@
   <p class="sub">Synthetic sample data, 120 m × 120 m, 0.25 m cells</p>
   <div class="ramp" id="ramp"></div>
   <div class="scale"><span id="lo">−5 nT</span><span id="hi">+5 nT</span></div>
-  <label for="opacity">Survey opacity: <span id="opVal">100</span>%</label>
-  <input id="opacity" type="range" min="0" max="100" value="100">
+
+  <label for="opacity">Survey opacity: <span id="opVal">85</span>%</label>
+  <input id="opacity" type="range" min="0" max="100" value="85">
+
   <label for="display">Display</label>
   <select id="display">
     <option value="grey">Greyscale (standard)</option>
     <option value="colour">Colour (red positive, blue negative)</option>
   </select>
+
   <label for="base">Basemap</label>
   <select id="base">
     <option value="sat">Aerial (Esri)</option>
     <option value="osm">Street map (OpenStreetMap)</option>
   </select>
+
+  <label class="check"><input id="move" type="checkbox"> Click map to move survey</label>
+  <p id="coords"></p>
 </div>
 
 <script>
 // ---- settings you may want to change -------------------------------------
 const IMAGES = { grey:'magnetometry_grey.png', colour:'magnetometry_colour.png' };
-const CENTRE = [-1.8560, 51.6490];  // lon, lat of survey centre (approximate: adjust to your field)
-const SIZE_M = 120;              // survey edge length in metres (north-aligned square)
+let centre = [-1.8500, 51.6428];   // lon, lat of survey centre (approximate: use "Click map to move survey")
+const SIZE_M = 120;                // survey edge length in metres (north-aligned square)
 // ---------------------------------------------------------------------------
 
-// Work out the four corners from centre + size (for real data, paste in the true corner coordinates)
-const dLat = (SIZE_M/2) / 111320;
-const dLon = (SIZE_M/2) / (111320 * Math.cos(CENTRE[1] * Math.PI/180));
-const CORNERS = [            // top-left, top-right, bottom-right, bottom-left
-  [CENTRE[0]-dLon, CENTRE[1]+dLat], [CENTRE[0]+dLon, CENTRE[1]+dLat],
-  [CENTRE[0]+dLon, CENTRE[1]-dLat], [CENTRE[0]-dLon, CENTRE[1]-dLat]
-];
+function corners(c) {              // top-left, top-right, bottom-right, bottom-left
+  const dLat = (SIZE_M/2) / 111320;
+  const dLon = (SIZE_M/2) / (111320 * Math.cos(c[1] * Math.PI/180));
+  return [[c[0]-dLon, c[1]+dLat], [c[0]+dLon, c[1]+dLat], [c[0]+dLon, c[1]-dLat], [c[0]-dLon, c[1]-dLat]];
+}
+const $ = id => document.getElementById(id);
+let current = 'grey';
 
 const map = new maplibregl.Map({
   container: 'map',
@@ -78,127 +86,43 @@ const map = new maplibregl.Map({
       { id:'osm', type:'raster', source:'osm', layout:{ visibility:'none' } }
     ]
   },
-  center: CENTRE, zoom:18, maxZoom:21, maxPitch:75
+  center: centre, zoom:17.5, maxZoom:21, maxPitch:75
 });
 map.addControl(new maplibregl.NavigationControl({ visualizePitch:true }));
 map.addControl(new maplibregl.ScaleControl({ unit:'metric' }), 'bottom-right');
 
+function showCoords() {
+  $('coords').textContent = 'Centre: ' + centre[1].toFixed(5) + ', ' + centre[0].toFixed(5) + ' (lat, lon)';
+}
+
 map.on('load', () => {
-  map.addSource('survey', { type:'image', url:IMAGES.grey, coordinates:CORNERS });
+  map.addSource('survey', { type:'image', url:IMAGES.grey, coordinates:corners(centre) });
   map.addLayer({ id:'survey', type:'raster', source:'survey',
-    paint:{ 'raster-resampling':'nearest', 'raster-opacity':1, 'raster-fade-duration':0 } });
-  const b = new maplibregl.LngLatBounds(CORNERS[3], CORNERS[1]);
-  map.fitBounds(b, { padding:50, duration:0 });
+    paint:{ 'raster-resampling':'nearest', 'raster-opacity':0.85, 'raster-fade-duration':0 } });
+  showCoords();
 });
 
-document.getElementById('opacity').addEventListener('input', e => {
-  document.getElementById('opVal').textContent = e.target.value;
+$('opacity').addEventListener('input', e => {
+  $('opVal').textContent = e.target.value;
   map.setPaintProperty('survey', 'raster-opacity', e.target.value/100);
 });
-document.getElementById('base').addEventListener('change', e => {
+$('base').addEventListener('change', e => {
   map.setLayoutProperty('sat', 'visibility', e.target.value === 'sat' ? 'visible' : 'none');
   map.setLayoutProperty('osm', 'visibility', e.target.value === 'osm' ? 'visible' : 'none');
 });
-document.getElementById('display').addEventListener('change', e => {
-  map.getSource('survey').updateImage({ url: IMAGES[e.target.value], coordinates: CORNERS });
-  const c = e.target.value === 'colour';
-  document.getElementById('ramp').classList.toggle('colour', c);
-  document.getElementById('lo').textContent = c ? '+5 nT' : '−5 nT';
-  document.getElementById('hi').textContent = c ? '−5 nT' : '+5 nT';
+$('display').addEventListener('change', e => {
+  current = e.target.value;
+  const c = current === 'colour';
+  map.getSource('survey').updateImage({ url: IMAGES[current], coordinates: corners(centre) });
+  $('ramp').classList.toggle('colour', c);
+  $('lo').textContent = c ? '+5 nT' : '−5 nT';
+  $('hi').textContent = c ? '−5 nT' : '+5 nT';
 });
-</script>
-<style>
-  :root { --ink:#e8eef2; --muted:#9db0bb; --panel:#14222b; --line:#2c4350; --accent:#f2c14e; }
-  html, body { height:100%; margin:0; }
-  body { font:15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; color:var(--ink); }
-  #map { position:absolute; inset:0; }
-  .panel { position:absolute; top:12px; left:12px; width:260px; max-width:calc(100% - 24px);
-    background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:14px 16px; }
-  h1 { font-size:16px; margin:0 0 2px; font-weight:650; }
-  .sub { color:var(--muted); margin:0 0 12px; font-size:13px; }
-  .ramp { height:10px; border-radius:2px; background:linear-gradient(to right,#fff,#000); }
-  .ramp.colour { background:linear-gradient(to right,#b2182b,#f4a582,#f7f7f7,#92c5de,#2166ac); }
-  .scale { display:flex; justify-content:space-between; font-size:12px; color:var(--muted); margin:4px 0 6px; }
-  label { display:block; font-size:13px; color:var(--muted); margin:12px 0 4px; }
-  input[type=range] { width:100%; accent-color:var(--accent); }
-  select { font:inherit; color:var(--ink); background:#1d3340; border:1px solid var(--line);
-    border-radius:4px; padding:6px 8px; width:100%; }
-  select:focus-visible, input:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
-</style>
-</head>
-<body>
-<div id="map"></div>
-<div class="panel">
-  <h1>Magnetometry survey</h1>
-  <p class="sub">Synthetic sample data, 120 m × 120 m, 0.25 m cells</p>
-  <div class="ramp" id="ramp"></div>
-  <div class="scale"><span id="lo">−5 nT</span><span id="hi">+5 nT</span></div>
-  <label for="opacity">Survey opacity: <span id="opVal">100</span>%</label>
-  <input id="opacity" type="range" min="0" max="100" value="100">
-  <label for="display">Display</label>
-  <select id="display">
-    <option value="grey">Greyscale (standard)</option>
-    <option value="colour">Colour (red positive, blue negative)</option>
-  </select>
-  <label for="base">Basemap</label>
-  <select id="base">
-    <option value="sat">Aerial (Esri)</option>
-    <option value="osm">Street map (OpenStreetMap)</option>
-  </select>
-</div>
-
-<script>
-// ---- settings you may want to change -------------------------------------
-const IMAGES = { grey:'magnetometry_grey.png', colour:'magnetometry_colour.png' };
-const CENTRE = [-1.8560, 51.6490];  // lon, lat of survey centre (approximate: adjust to your field)
-const SIZE_M = 120;              // survey edge length in metres (north-aligned square)
-// ---------------------------------------------------------------------------
-
-// Work out the four corners from centre + size (for real data, paste in the true corner coordinates)
-const dLat = (SIZE_M/2) / 111320;
-const dLon = (SIZE_M/2) / (111320 * Math.cos(CENTRE[1] * Math.PI/180));
-const CORNERS = [            // top-left, top-right, bottom-right, bottom-left
-  [CENTRE[0]-dLon, CENTRE[1]+dLat], [CENTRE[0]+dLon, CENTRE[1]+dLat],
-  [CENTRE[0]+dLon, CENTRE[1]-dLat], [CENTRE[0]-dLon, CENTRE[1]-dLat]
-];
-
-const map = new maplibregl.Map({
-  container: 'map',
-  style: {
-    version: 8,
-    sources: {
-      sat: { type:'raster', tileSize:256, maxzoom:19,
-        tiles:['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],
-        attribution:'Imagery © Esri, Maxar, Earthstar Geographics' },
-      osm: { type:'raster', tileSize:256, maxzoom:19,
-        tiles:['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
-        attribution:'© OpenStreetMap contributors' }
-    },
-    layers: [
-      { id:'sat', type:'raster', source:'sat' },
-      { id:'osm', type:'raster', source:'osm', layout:{ visibility:'none' } }
-    ]
-  },
-  center: CENTRE, zoom:18, maxZoom:21, maxPitch:75
-});
-map.addControl(new maplibregl.NavigationControl({ visualizePitch:true }));
-map.addControl(new maplibregl.ScaleControl({ unit:'metric' }), 'bottom-right');
-
-map.on('load', () => {
-  map.addSource('survey', { type:'image', url:IMAGES.grey, coordinates:CORNERS });
-  map.addLayer({ id:'survey', type:'raster', source:'survey',
-    paint:{ 'raster-resampling':'nearest', 'raster-opacity':1, 'raster-fade-duration':0 } });
-  const b = new maplibregl.LngLatBounds(CORNERS[3], CORNERS[1]);
-  map.fitBounds(b, { padding:50, duration:0 });
-});
-
-document.getElementById('opacity').addEventListener('input', e => {
-  document.getElementById('opVal').textContent = e.target.value;
-  map.setPaintProperty('survey', 'raster-opacity', e.target.value/100);
-});
-document.getElementById('base').addEventListener('change', e => {
-  map.setLayoutProperty('dark', 'visibility', e.target.value === 'dark' ? 'visible' : 'none');
-  map.setLayoutProperty('sat', 'visibility', e.target.value === 'sat' ? 'visible' : 'none');
+map.on('click', e => {
+  if (!$('move').checked) return;
+  centre = [e.lngLat.lng, e.lngLat.lat];
+  map.getSource('survey').updateImage({ url: IMAGES[current], coordinates: corners(centre) });
+  showCoords();
 });
 </script>
 </body>
