@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Survey points by height</title>
+<title>Magnetometry survey, Cricklade</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.css">
 <script src="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 <style>
@@ -15,130 +15,190 @@
     background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:14px 16px; }
   h1 { font-size:16px; margin:0 0 2px; font-weight:650; }
   .sub { color:var(--muted); margin:0 0 12px; font-size:13px; }
-  .ramp { height:10px; border-radius:2px; background:linear-gradient(to right,
-    #440154,#3b528b,#21908d,#5dc863,#fde725); }
-  .scale { display:flex; justify-content:space-between; font-size:12px; color:var(--muted); margin:4px 0 14px; }
-  button { font:inherit; color:var(--ink); background:#1d3340; border:1px solid var(--line);
-    border-radius:4px; padding:7px 10px; cursor:pointer; width:100%; }
-  button:hover { border-color:var(--accent); }
-  button:focus-visible, input:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+  .ramp { height:10px; border-radius:2px; background:linear-gradient(to right,#fff,#000); }
+  .ramp.colour { background:linear-gradient(to right,#b2182b,#f4a582,#f7f7f7,#92c5de,#2166ac); }
+  .scale { display:flex; justify-content:space-between; font-size:12px; color:var(--muted); margin:4px 0 6px; }
   label { display:block; font-size:13px; color:var(--muted); margin:12px 0 4px; }
   input[type=range] { width:100%; accent-color:var(--accent); }
-  #exagWrap { display:none; }
-  .maplibregl-popup-content { background:var(--panel); color:var(--ink); border:1px solid var(--line); font-size:13px; }
-  .maplibregl-popup-tip { border-top-color:var(--panel)!important; border-bottom-color:var(--panel)!important; }
+  select { font:inherit; color:var(--ink); background:#1d3340; border:1px solid var(--line);
+    border-radius:4px; padding:6px 8px; width:100%; }
+  select:focus-visible, input:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
 </style>
 </head>
 <body>
 <div id="map"></div>
 <div class="panel">
-  <h1>Survey points by height</h1>
-  <p class="sub" id="count">Loading…</p>
-  <div class="ramp"></div>
-  <div class="scale"><span id="zmin">low</span><span id="zmax">high</span></div>
-  <button id="mode" type="button">Switch to 3D view</button>
-  <div id="exagWrap">
-    <label for="exag">Vertical exaggeration: <span id="exagVal">3</span>×</label>
-    <input id="exag" type="range" min="1" max="10" step="0.5" value="3">
-  </div>
+  <h1>Magnetometry survey</h1>
+  <p class="sub">Synthetic sample data, 120 m × 120 m, 0.25 m cells</p>
+  <div class="ramp" id="ramp"></div>
+  <div class="scale"><span id="lo">−5 nT</span><span id="hi">+5 nT</span></div>
+  <label for="opacity">Survey opacity: <span id="opVal">100</span>%</label>
+  <input id="opacity" type="range" min="0" max="100" value="100">
+  <label for="display">Display</label>
+  <select id="display">
+    <option value="grey">Greyscale (standard)</option>
+    <option value="colour">Colour (red positive, blue negative)</option>
+  </select>
+  <label for="base">Basemap</label>
+  <select id="base">
+    <option value="sat">Aerial (Esri)</option>
+    <option value="osm">Street map (OpenStreetMap)</option>
+  </select>
 </div>
 
 <script>
 // ---- settings you may want to change -------------------------------------
-const DATA_URL = 'survey_points.geojson';   // relative path works on GitHub Pages
-const HEIGHT_PROP = 'z';                    // attribute holding elevation (m)
-const HALF_SIZE_M = 0.7;                    // half-width of each 3D column (m)
+const IMAGES = { grey:'magnetometry_grey.png', colour:'magnetometry_colour.png' };
+const CENTRE = [-1.8560, 51.6490];  // lon, lat of survey centre (approximate: adjust to your field)
+const SIZE_M = 120;              // survey edge length in metres (north-aligned square)
 // ---------------------------------------------------------------------------
+
+// Work out the four corners from centre + size (for real data, paste in the true corner coordinates)
+const dLat = (SIZE_M/2) / 111320;
+const dLon = (SIZE_M/2) / (111320 * Math.cos(CENTRE[1] * Math.PI/180));
+const CORNERS = [            // top-left, top-right, bottom-right, bottom-left
+  [CENTRE[0]-dLon, CENTRE[1]+dLat], [CENTRE[0]+dLon, CENTRE[1]+dLat],
+  [CENTRE[0]+dLon, CENTRE[1]-dLat], [CENTRE[0]-dLon, CENTRE[1]-dLat]
+];
 
 const map = new maplibregl.Map({
   container: 'map',
   style: {
     version: 8,
-    sources: { base: { type:'raster', tileSize:256, maxzoom:19,
-      tiles:['https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png'],
-      attribution:'© OpenStreetMap contributors © CARTO' } },
-    layers: [{ id:'base', type:'raster', source:'base' }]
+    sources: {
+      sat: { type:'raster', tileSize:256, maxzoom:19,
+        tiles:['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],
+        attribution:'Imagery © Esri, Maxar, Earthstar Geographics' },
+      osm: { type:'raster', tileSize:256, maxzoom:19,
+        tiles:['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+        attribution:'© OpenStreetMap contributors' }
+    },
+    layers: [
+      { id:'sat', type:'raster', source:'sat' },
+      { id:'osm', type:'raster', source:'osm', layout:{ visibility:'none' } }
+    ]
   },
-  center:[-1.8, 53.2], zoom:16, maxPitch:75
+  center: CENTRE, zoom:18, maxZoom:21, maxPitch:75
 });
 map.addControl(new maplibregl.NavigationControl({ visualizePitch:true }));
 map.addControl(new maplibregl.ScaleControl({ unit:'metric' }), 'bottom-right');
 
-let zMin, zMax, is3D = false, exag = 3, data;
-
-const colour = () => ['interpolate', ['linear'], ['get', HEIGHT_PROP],
-  zMin, '#440154',
-  zMin + (zMax-zMin)*0.25, '#3b528b',
-  zMin + (zMax-zMin)*0.5, '#21908d',
-  zMin + (zMax-zMin)*0.75, '#5dc863',
-  zMax, '#fde725'];
-
-// Build a small square polygon around each point so it can be extruded in 3D
-function toSquares(fc) {
-  return { type:'FeatureCollection', features: fc.features.map(f => {
-    const [x, y] = f.geometry.coordinates;
-    const dy = HALF_SIZE_M / 111320, dx = HALF_SIZE_M / (111320 * Math.cos(y * Math.PI/180));
-    return { type:'Feature', properties:f.properties, geometry:{ type:'Polygon',
-      coordinates:[[[x-dx,y-dy],[x+dx,y-dy],[x+dx,y+dy],[x-dx,y+dy],[x-dx,y-dy]]] } };
-  })};
-}
-
-const columnHeight = () => ['*', ['+', ['-', ['get', HEIGHT_PROP], zMin], 0.3], exag];
-
-map.on('load', async () => {
-  data = await (await fetch(DATA_URL)).json();
-  const zs = data.features.map(f => f.properties[HEIGHT_PROP]);
-  zMin = Math.min(...zs); zMax = Math.max(...zs);
-  document.getElementById('count').textContent =
-    data.features.length.toLocaleString() + ' points';
-  document.getElementById('zmin').textContent = zMin.toFixed(1) + ' m';
-  document.getElementById('zmax').textContent = zMax.toFixed(1) + ' m';
-
-  // 2D: coloured circles
-  map.addSource('pts', { type:'geojson', data });
-  map.addLayer({ id:'pts-2d', type:'circle', source:'pts', paint:{
-    'circle-color': colour(),
-    'circle-radius': ['interpolate',['linear'],['zoom'], 14,1.5, 18,5, 21,10],
-    'circle-stroke-width': 0.5, 'circle-stroke-color':'rgba(0,0,0,0.35)' }});
-
-  // 3D: extruded columns (hidden until switched on)
-  map.addSource('cols', { type:'geojson', data: toSquares(data) });
-  map.addLayer({ id:'pts-3d', type:'fill-extrusion', source:'cols',
-    layout:{ visibility:'none' },
-    paint:{ 'fill-extrusion-color': colour(), 'fill-extrusion-height': columnHeight(),
-            'fill-extrusion-base': 0, 'fill-extrusion-opacity': 0.95 }});
-
-  const b = new maplibregl.LngLatBounds();
-  data.features.forEach(f => b.extend(f.geometry.coordinates));
-  map.fitBounds(b, { padding:60, duration:0 });
-
-  // Click popup
-  for (const id of ['pts-2d', 'pts-3d']) {
-    map.on('click', id, e => {
-      const p = e.features[0].properties;
-      new maplibregl.Popup({ closeButton:false }).setLngLat(e.lngLat)
-        .setHTML(`<strong>Point ${p.id}</strong><br>Height: ${(+p[HEIGHT_PROP]).toFixed(2)} m<br>Code: ${p.code}`)
-        .addTo(map);
-    });
-    map.on('mouseenter', id, () => map.getCanvas().style.cursor = 'pointer');
-    map.on('mouseleave', id, () => map.getCanvas().style.cursor = '');
-  }
+map.on('load', () => {
+  map.addSource('survey', { type:'image', url:IMAGES.grey, coordinates:CORNERS });
+  map.addLayer({ id:'survey', type:'raster', source:'survey',
+    paint:{ 'raster-resampling':'nearest', 'raster-opacity':1, 'raster-fade-duration':0 } });
+  const b = new maplibregl.LngLatBounds(CORNERS[3], CORNERS[1]);
+  map.fitBounds(b, { padding:50, duration:0 });
 });
 
-// 2D / 3D toggle
-document.getElementById('mode').addEventListener('click', e => {
-  is3D = !is3D;
-  map.setLayoutProperty('pts-2d', 'visibility', is3D ? 'none' : 'visible');
-  map.setLayoutProperty('pts-3d', 'visibility', is3D ? 'visible' : 'none');
-  document.getElementById('exagWrap').style.display = is3D ? 'block' : 'none';
-  e.target.textContent = is3D ? 'Switch to 2D view' : 'Switch to 3D view';
-  map.easeTo({ pitch: is3D ? 60 : 0, bearing: is3D ? -25 : 0, duration:800 });
+document.getElementById('opacity').addEventListener('input', e => {
+  document.getElementById('opVal').textContent = e.target.value;
+  map.setPaintProperty('survey', 'raster-opacity', e.target.value/100);
+});
+document.getElementById('base').addEventListener('change', e => {
+  map.setLayoutProperty('sat', 'visibility', e.target.value === 'sat' ? 'visible' : 'none');
+  map.setLayoutProperty('osm', 'visibility', e.target.value === 'osm' ? 'visible' : 'none');
+});
+document.getElementById('display').addEventListener('change', e => {
+  map.getSource('survey').updateImage({ url: IMAGES[e.target.value], coordinates: CORNERS });
+  const c = e.target.value === 'colour';
+  document.getElementById('ramp').classList.toggle('colour', c);
+  document.getElementById('lo').textContent = c ? '+5 nT' : '−5 nT';
+  document.getElementById('hi').textContent = c ? '−5 nT' : '+5 nT';
+});
+</script>
+<style>
+  :root { --ink:#e8eef2; --muted:#9db0bb; --panel:#14222b; --line:#2c4350; --accent:#f2c14e; }
+  html, body { height:100%; margin:0; }
+  body { font:15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; color:var(--ink); }
+  #map { position:absolute; inset:0; }
+  .panel { position:absolute; top:12px; left:12px; width:260px; max-width:calc(100% - 24px);
+    background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:14px 16px; }
+  h1 { font-size:16px; margin:0 0 2px; font-weight:650; }
+  .sub { color:var(--muted); margin:0 0 12px; font-size:13px; }
+  .ramp { height:10px; border-radius:2px; background:linear-gradient(to right,#fff,#000); }
+  .ramp.colour { background:linear-gradient(to right,#b2182b,#f4a582,#f7f7f7,#92c5de,#2166ac); }
+  .scale { display:flex; justify-content:space-between; font-size:12px; color:var(--muted); margin:4px 0 6px; }
+  label { display:block; font-size:13px; color:var(--muted); margin:12px 0 4px; }
+  input[type=range] { width:100%; accent-color:var(--accent); }
+  select { font:inherit; color:var(--ink); background:#1d3340; border:1px solid var(--line);
+    border-radius:4px; padding:6px 8px; width:100%; }
+  select:focus-visible, input:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div class="panel">
+  <h1>Magnetometry survey</h1>
+  <p class="sub">Synthetic sample data, 120 m × 120 m, 0.25 m cells</p>
+  <div class="ramp" id="ramp"></div>
+  <div class="scale"><span id="lo">−5 nT</span><span id="hi">+5 nT</span></div>
+  <label for="opacity">Survey opacity: <span id="opVal">100</span>%</label>
+  <input id="opacity" type="range" min="0" max="100" value="100">
+  <label for="display">Display</label>
+  <select id="display">
+    <option value="grey">Greyscale (standard)</option>
+    <option value="colour">Colour (red positive, blue negative)</option>
+  </select>
+  <label for="base">Basemap</label>
+  <select id="base">
+    <option value="sat">Aerial (Esri)</option>
+    <option value="osm">Street map (OpenStreetMap)</option>
+  </select>
+</div>
+
+<script>
+// ---- settings you may want to change -------------------------------------
+const IMAGES = { grey:'magnetometry_grey.png', colour:'magnetometry_colour.png' };
+const CENTRE = [-1.8560, 51.6490];  // lon, lat of survey centre (approximate: adjust to your field)
+const SIZE_M = 120;              // survey edge length in metres (north-aligned square)
+// ---------------------------------------------------------------------------
+
+// Work out the four corners from centre + size (for real data, paste in the true corner coordinates)
+const dLat = (SIZE_M/2) / 111320;
+const dLon = (SIZE_M/2) / (111320 * Math.cos(CENTRE[1] * Math.PI/180));
+const CORNERS = [            // top-left, top-right, bottom-right, bottom-left
+  [CENTRE[0]-dLon, CENTRE[1]+dLat], [CENTRE[0]+dLon, CENTRE[1]+dLat],
+  [CENTRE[0]+dLon, CENTRE[1]-dLat], [CENTRE[0]-dLon, CENTRE[1]-dLat]
+];
+
+const map = new maplibregl.Map({
+  container: 'map',
+  style: {
+    version: 8,
+    sources: {
+      sat: { type:'raster', tileSize:256, maxzoom:19,
+        tiles:['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],
+        attribution:'Imagery © Esri, Maxar, Earthstar Geographics' },
+      osm: { type:'raster', tileSize:256, maxzoom:19,
+        tiles:['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+        attribution:'© OpenStreetMap contributors' }
+    },
+    layers: [
+      { id:'sat', type:'raster', source:'sat' },
+      { id:'osm', type:'raster', source:'osm', layout:{ visibility:'none' } }
+    ]
+  },
+  center: CENTRE, zoom:18, maxZoom:21, maxPitch:75
+});
+map.addControl(new maplibregl.NavigationControl({ visualizePitch:true }));
+map.addControl(new maplibregl.ScaleControl({ unit:'metric' }), 'bottom-right');
+
+map.on('load', () => {
+  map.addSource('survey', { type:'image', url:IMAGES.grey, coordinates:CORNERS });
+  map.addLayer({ id:'survey', type:'raster', source:'survey',
+    paint:{ 'raster-resampling':'nearest', 'raster-opacity':1, 'raster-fade-duration':0 } });
+  const b = new maplibregl.LngLatBounds(CORNERS[3], CORNERS[1]);
+  map.fitBounds(b, { padding:50, duration:0 });
 });
 
-document.getElementById('exag').addEventListener('input', e => {
-  exag = +e.target.value;
-  document.getElementById('exagVal').textContent = exag;
-  map.setPaintProperty('pts-3d', 'fill-extrusion-height', columnHeight());
+document.getElementById('opacity').addEventListener('input', e => {
+  document.getElementById('opVal').textContent = e.target.value;
+  map.setPaintProperty('survey', 'raster-opacity', e.target.value/100);
+});
+document.getElementById('base').addEventListener('change', e => {
+  map.setLayoutProperty('dark', 'visibility', e.target.value === 'dark' ? 'visible' : 'none');
+  map.setLayoutProperty('sat', 'visibility', e.target.value === 'sat' ? 'visible' : 'none');
 });
 </script>
 </body>
