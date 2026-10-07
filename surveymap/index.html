@@ -3,9 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Magnetometry survey, Cricklade</title>
+<title>Survey point cloud, Cricklade</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.css">
 <script src="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/deck.gl@9.1.0/dist.min.js"></script>
 <style>
   :root { --ink:#e8eef2; --muted:#9db0bb; --panel:#14222b; --line:#2c4350; --accent:#f2c14e; }
   html, body { height:100%; margin:0; }
@@ -15,8 +16,8 @@
     background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:14px 16px; }
   h1 { font-size:16px; margin:0 0 2px; font-weight:650; }
   .sub { color:var(--muted); margin:0 0 12px; font-size:13px; }
-  .ramp { height:10px; border-radius:2px; background:linear-gradient(to right,#fff,#000); }
-  .ramp.colour { background:linear-gradient(to right,#b2182b,#f4a582,#f7f7f7,#92c5de,#2166ac); }
+  .ramp { height:10px; border-radius:2px;
+    background:linear-gradient(to right,#440154,#3b528b,#21908d,#5dc863,#fde725); }
   .scale { display:flex; justify-content:space-between; font-size:12px; color:var(--muted); margin:4px 0 6px; }
   label { display:block; font-size:13px; color:var(--muted); margin:12px 0 4px; }
   label.check { display:flex; gap:8px; align-items:center; color:var(--ink); }
@@ -24,25 +25,22 @@
   select { font:inherit; color:var(--ink); background:#1d3340; border:1px solid var(--line);
     border-radius:4px; padding:6px 8px; width:100%; }
   select:focus-visible, input:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
-  #coords { font-size:12px; color:var(--muted); margin:6px 0 0; word-break:break-all; }
+  .hint { font-size:12px; color:var(--muted); margin:12px 0 0; }
 </style>
 </head>
 <body>
 <div id="map"></div>
 <div class="panel">
-  <h1>Magnetometry survey</h1>
-  <p class="sub">Synthetic sample data, 120 m × 120 m, 0.25 m cells</p>
-  <div class="ramp" id="ramp"></div>
-  <div class="scale"><span id="lo">−5 nT</span><span id="hi">+5 nT</span></div>
+  <h1>Survey point cloud</h1>
+  <p class="sub" id="count">Loading…</p>
+  <div class="ramp"></div>
+  <div class="scale"><span id="zmin">low</span><span id="zmax">high</span></div>
 
-  <label for="opacity">Survey opacity: <span id="opVal">85</span>%</label>
-  <input id="opacity" type="range" min="0" max="100" value="85">
+  <label for="exag">Vertical exaggeration: <span id="exagVal">10</span>×</label>
+  <input id="exag" type="range" min="1" max="40" step="1" value="10">
 
-  <label for="display">Display</label>
-  <select id="display">
-    <option value="grey">Greyscale (standard)</option>
-    <option value="colour">Colour (red positive, blue negative)</option>
-  </select>
+  <label for="size">Point size: <span id="sizeVal">0.5</span> m</label>
+  <input id="size" type="range" min="0.2" max="1.5" step="0.1" value="0.5">
 
   <label for="base">Basemap</label>
   <select id="base">
@@ -50,80 +48,82 @@
     <option value="osm">Street map (OpenStreetMap)</option>
   </select>
 
-  <label class="check"><input id="move" type="checkbox"> Click map to move survey</label>
-  <p id="coords"></p>
+  <label class="check"><input id="mag" type="checkbox"> Show magnetometry underneath</label>
+  <p class="hint">Right-drag (or Ctrl-drag) to tilt and rotate. Hover a point for its height.</p>
 </div>
 
 <script>
 // ---- settings you may want to change -------------------------------------
-const IMAGES = { grey:'magnetometry_grey.png', colour:'magnetometry_colour.png' };
-let centre = [-1.8500, 51.6428];   // lon, lat of survey centre (approximate: use "Click map to move survey")
-const SIZE_M = 120;                // survey edge length in metres (north-aligned square)
+const DATA_URL = 'survey_points.geojson';
+const MAG_URL = 'magnetometry_grey.png';       // optional underlay, same 120 m footprint
+const CENTRE = [-1.84991, 51.64328];            // lon, lat
+const SIZE_M = 120;
 // ---------------------------------------------------------------------------
-
-function corners(c) {              // top-left, top-right, bottom-right, bottom-left
-  const dLat = (SIZE_M/2) / 111320;
-  const dLon = (SIZE_M/2) / (111320 * Math.cos(c[1] * Math.PI/180));
-  return [[c[0]-dLon, c[1]+dLat], [c[0]+dLon, c[1]+dLat], [c[0]+dLon, c[1]-dLat], [c[0]-dLon, c[1]-dLat]];
-}
 const $ = id => document.getElementById(id);
-let current = 'grey';
+const dLat = (SIZE_M/2)/111320, dLon = (SIZE_M/2)/(111320*Math.cos(CENTRE[1]*Math.PI/180));
+const CORNERS = [[CENTRE[0]-dLon,CENTRE[1]+dLat],[CENTRE[0]+dLon,CENTRE[1]+dLat],
+                 [CENTRE[0]+dLon,CENTRE[1]-dLat],[CENTRE[0]-dLon,CENTRE[1]-dLat]];
 
 const map = new maplibregl.Map({
   container: 'map',
-  style: {
-    version: 8,
+  style: { version: 8,
     sources: {
       sat: { type:'raster', tileSize:256, maxzoom:19,
         tiles:['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],
         attribution:'Imagery © Esri, Maxar, Earthstar Geographics' },
       osm: { type:'raster', tileSize:256, maxzoom:19,
-        tiles:['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
-        attribution:'© OpenStreetMap contributors' }
-    },
-    layers: [
-      { id:'sat', type:'raster', source:'sat' },
-      { id:'osm', type:'raster', source:'osm', layout:{ visibility:'none' } }
-    ]
-  },
-  center: centre, zoom:17.5, maxZoom:21, maxPitch:75
+        tiles:['https://tile.openstreetmap.org/{z}/{x}/{y}.png'], attribution:'© OpenStreetMap contributors' } },
+    layers: [ { id:'sat', type:'raster', source:'sat' },
+              { id:'osm', type:'raster', source:'osm', layout:{ visibility:'none' } } ] },
+  center: CENTRE, zoom:18, pitch:60, bearing:-20, maxZoom:21, maxPitch:80
 });
 map.addControl(new maplibregl.NavigationControl({ visualizePitch:true }));
 map.addControl(new maplibregl.ScaleControl({ unit:'metric' }), 'bottom-right');
 
-function showCoords() {
-  $('coords').textContent = 'Centre: ' + centre[1].toFixed(5) + ', ' + centre[0].toFixed(5) + ' (lat, lon)';
+const overlay = new deck.MapboxOverlay({ interleaved:false, layers:[],
+  getTooltip: ({object}) => object && { text: 'Height: ' + object.z.toFixed(2) + ' m',
+    style:{ background:'#14222b', color:'#e8eef2', fontSize:'13px', border:'1px solid #2c4350' } } });
+map.addControl(overlay);
+
+// viridis-style ramp
+const STOPS = [[68,1,84],[59,82,139],[33,144,141],[93,200,99],[253,231,37]];
+function ramp(t) {
+  const x = Math.min(Math.max(t,0),1)*(STOPS.length-1), i = Math.min(Math.floor(x), STOPS.length-2), f = x-i;
+  return STOPS[i].map((v,k) => Math.round(v + (STOPS[i+1][k]-v)*f));
 }
 
-map.on('load', () => {
-  map.addSource('survey', { type:'image', url:IMAGES.grey, coordinates:corners(centre) });
-  map.addLayer({ id:'survey', type:'raster', source:'survey',
-    paint:{ 'raster-resampling':'nearest', 'raster-opacity':0.85, 'raster-fade-duration':0 } });
-  showCoords();
+let pts = [], zMin = 0, zMax = 1, exag = 10, size = 0.5;
+function draw() {
+  overlay.setProps({ layers:[ new deck.PointCloudLayer({
+    id:'cloud', data:pts, pickable:true, material:false,
+    getPosition: d => [d.lon, d.lat, (d.z - zMin)*exag],
+    getColor: d => d.c, pointSize:size, sizeUnits:'meters',
+    updateTriggers:{ getPosition:[exag] } }) ] });
+}
+
+map.on('load', async () => {
+  map.addSource('mag', { type:'image', url:MAG_URL, coordinates:CORNERS });
+  map.addLayer({ id:'mag', type:'raster', source:'mag', layout:{ visibility:'none' },
+    paint:{ 'raster-resampling':'nearest', 'raster-opacity':0.9, 'raster-fade-duration':0 } });
+
+  const fc = await (await fetch(DATA_URL)).json();
+  zMin = Infinity; zMax = -Infinity;
+  for (const f of fc.features) { const z = f.properties.z; if (z<zMin) zMin=z; if (z>zMax) zMax=z; }
+  pts = fc.features.map(f => ({ lon:f.geometry.coordinates[0], lat:f.geometry.coordinates[1],
+    z:f.properties.z, c:ramp((f.properties.z - zMin)/(zMax - zMin)) }));
+  $('count').textContent = pts.length.toLocaleString() + ' points, ' + (zMax-zMin).toFixed(1) + ' m relief';
+  $('zmin').textContent = zMin.toFixed(2) + ' m';
+  $('zmax').textContent = zMax.toFixed(2) + ' m';
+  draw();
 });
 
-$('opacity').addEventListener('input', e => {
-  $('opVal').textContent = e.target.value;
-  map.setPaintProperty('survey', 'raster-opacity', e.target.value/100);
-});
+$('exag').addEventListener('input', e => { exag = +e.target.value; $('exagVal').textContent = exag; draw(); });
+$('size').addEventListener('input', e => { size = +e.target.value; $('sizeVal').textContent = size.toFixed(1); draw(); });
 $('base').addEventListener('change', e => {
-  map.setLayoutProperty('sat', 'visibility', e.target.value === 'sat' ? 'visible' : 'none');
-  map.setLayoutProperty('osm', 'visibility', e.target.value === 'osm' ? 'visible' : 'none');
-});
-$('display').addEventListener('change', e => {
-  current = e.target.value;
-  const c = current === 'colour';
-  map.getSource('survey').updateImage({ url: IMAGES[current], coordinates: corners(centre) });
-  $('ramp').classList.toggle('colour', c);
-  $('lo').textContent = c ? '+5 nT' : '−5 nT';
-  $('hi').textContent = c ? '−5 nT' : '+5 nT';
-});
-map.on('click', e => {
-  if (!$('move').checked) return;
-  centre = [e.lngLat.lng, e.lngLat.lat];
-  map.getSource('survey').updateImage({ url: IMAGES[current], coordinates: corners(centre) });
-  showCoords();
-});
+  map.setLayoutProperty('sat','visibility', e.target.value==='sat' ? 'visible':'none');
+  map.setLayoutProperty('osm','visibility', e.target.value==='osm' ? 'visible':'none'); });
+$('mag').addEventListener('change', e =>
+  map.setLayoutProperty('mag','visibility', e.target.checked ? 'visible':'none'));
 </script>
 </body>
 </html>
