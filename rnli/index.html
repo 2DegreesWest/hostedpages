@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>RNLI ROS</title>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -25,7 +25,7 @@
 
   * { box-sizing: border-box; }
   [hidden] { display: none !important; }
-  html, body { height: 100%; margin: 0; background: var(--sea); }
+  html, body { height: 100%; height: 100dvh; margin: 0; background: var(--sea); }
   body { font-family: var(--font-body); color: var(--text); }
 
   #map { position: absolute; inset: 0; }
@@ -41,6 +41,7 @@
   }
 
   .panel { top: 16px; left: 16px; width: 316px; padding: 18px 18px 16px; }
+  .sheet-toggle { display: none; }
 
   h1 {
     margin: 0;
@@ -111,6 +112,7 @@
     background: transparent;
     -webkit-appearance: none; appearance: none;
     cursor: ew-resize;
+    touch-action: pan-y;
   }
   #time::-webkit-slider-runnable-track { height: 56px; background: transparent; }
   #time::-moz-range-track { height: 56px; background: transparent; }
@@ -193,19 +195,41 @@
   button:focus-visible, select:focus-visible, #time:focus-visible { outline: 2px solid var(--port); outline-offset: 2px; }
 
   @media (max-width: 640px) {
-    .panel { top: auto; bottom: 0; left: 0; right: 0; width: auto; border-radius: 12px 12px 0 0; padding: 14px 16px 12px; }
-    h1 { font-size: 24px; }
-    .sub, .legend, .range-ends { display: none; }
-    .count { margin: 10px 0; padding-top: 10px; }
+    /* Controls become a bottom sheet that scrolls if it is taller than the space it is given */
+    .panel {
+      position: fixed; top: auto; bottom: 0; left: 0; right: 0; width: auto;
+      max-height: 52vh; max-height: 52dvh;
+      overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
+      border-radius: 14px 14px 0 0;
+      padding: 0 16px calc(12px + env(safe-area-inset-bottom, 0px));
+    }
+    .sheet-toggle {
+      display: block; position: sticky; top: 0; z-index: 2;
+      width: 100%; height: 28px; padding: 0;
+      background: #0d1d26; border: 0; cursor: pointer;
+    }
+    .sheet-toggle::before {
+      content: ""; display: block; width: 40px; height: 4px; margin: 12px auto 0;
+      border-radius: 2px; background: rgba(160, 205, 215, 0.45);
+    }
+    .panel.collapsed .collapsible { display: none; }
+    h1 { font-size: 22px; }
+    .sub { display: none; }
+    .count { margin: 6px 0 10px; padding-top: 0; border-top: 0; }
+    .panel.collapsed .count { margin-top: 2px; }
     .count strong { font-size: 30px; }
+    .legend { margin-top: 14px; padding-top: 12px; }
     .track, #time::-webkit-slider-runnable-track, #time::-webkit-slider-thumb { height: 44px; }
     #time::-moz-range-track, #time::-moz-range-thumb { height: 44px; }
-    .port-card { top: 12px; left: 12px; right: 12px; width: auto; padding: 12px 14px; }
-    .port-card h2 { font-size: 22px; }
-    .donut { width: 96px; height: 96px; }
-    .pc-legend { display: none; }
-    .donut-c strong { font-size: 22px; }
-    .pc-title { margin: 10px 0; padding-top: 10px; }
+
+    /* Station card: just the name, as a slim pill. The map is filtered to that station. */
+    .port-card {
+      top: 12px; left: 12px; right: 60px; width: auto;
+      padding: 10px 46px 10px 16px; border-radius: 999px;
+    }
+    .port-card h2 { margin: 0; font-size: 18px; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .pc-title, .pc-pie, .pc-back { display: none; }
+    .pc-close { top: 50%; right: 8px; width: 32px; height: 32px; transform: translateY(-50%); }
   }
 </style>
 </head>
@@ -214,18 +238,19 @@
 <div id="map"></div>
 
 <section class="panel" aria-label="Controls">
-  <h1>RNLI Return of Service 2021 - 2006</h1>
+  <button class="sheet-toggle" id="sheet-toggle" type="button" aria-expanded="true" aria-label="Collapse controls"></button>
+  <h1 class="collapsible">RNLI Return of Service 2021 - 2006</h1>
   <p class="sub">(01/01/2021 - 31/06/2026)</p>
   <p class="sub">Data includes where assets were launched and arrived on scene.  Lines run from each station to an incident location and are themed by the distance from the coastline (nautical miles).</p>    
   <p class="sub">Note: any clear and obvious errors with incident locations have been removed (less than 50) which is why the numbers quoted will not match up to official RNLI stats.</p>
-  
+
   <div class="count">
     <strong id="shown">0</strong>
     <span id="of">in view</span>
     <button id="orbit" class="chip" type="button" aria-pressed="false">Orbit view</button>
   </div>
 
-  <div class="field">
+  <div class="field collapsible">
     <label for="window">Show incidents from</label>
     <select id="window">
       <option value="31536000000">The previous year</option>
@@ -245,12 +270,12 @@
     <div class="range-ends"><span id="t-min"></span><span id="t-max"></span></div>
   </div>
 
-  <div class="legend">
+  <div class="legend collapsible">
     <p>Distance from the coastline</p>
     <div class="ramp" id="ramp"></div>
     <div class="ramp-ends"><span id="near-label">Close</span><span id="far-label">Far</span></div>
     <div class="key"><b></b>New incident, fading to blue</div>
-    <div class="key"><i></i>Station, sized by total incidents</div>
+    <div class="key"><i></i>Station, sized by total incidents in view</div>
   </div>
 </section>
 
@@ -339,6 +364,7 @@
 
   const $ = id => document.getElementById(id);
   const el = {
+    panel: document.querySelector('.panel'), toggle: $('sheet-toggle'),
     shown: $('shown'), of: $('of'), win: $('window'), orbit: $('orbit'),
     when: $('when'), play: $('play'), time: $('time'), hist: $('hist'), tMin: $('t-min'), tMax: $('t-max'),
     error: $('error'), ramp: $('ramp'), near: $('near-label'), far: $('far-label'),
@@ -351,9 +377,10 @@
   el.play.innerHTML = ICON_PLAY;
 
   const isWide = () => window.innerWidth > 640;
+  const COARSE = window.matchMedia('(pointer: coarse)').matches;   // touch screens
   const padding = focused => isWide()
     ? { top: 60, bottom: 60, left: 360, right: focused ? 370 : 70 }
-    : { top: focused ? 230 : 60, bottom: 300, left: 20, right: 20 };
+    : { top: focused ? 90 : 60, bottom: Math.min(el.panel.offsetHeight, window.innerHeight * 0.52) + 30, left: 20, right: 20 };
 
   const map = new maplibregl.Map({
     container: 'map',
@@ -549,14 +576,18 @@
   // ---- deck.gl overlay ----------------------------------------------------
   const overlay = new deck.MapboxOverlay({
     interleaved: false,
-    pickingRadius: 6,
+    pickingRadius: COARSE ? 12 : 6,
     onHover: info => {
       map.getCanvas().style.cursor = (info.layer && info.layer.id === 'ports' && info.object) ? 'pointer' : '';
     },
     onClick: info => {
-      if (info.layer && info.layer.id === 'ports' && info.object) {
-        info.object.idx === focusPort ? clearFocus() : focusOn(info.object.idx);
+      // Stations win over incident dots: look for a station near the tap first
+      let hit = (info.layer && info.layer.id === 'ports' && info.object) ? info.object : null;
+      if (!hit && info.x != null && overlay.pickObject) {
+        const p = overlay.pickObject({ x: info.x, y: info.y, radius: COARSE ? 24 : 8, layerIds: ['ports'] });
+        if (p && p.object) hit = p.object;
       }
+      if (hit) hit.idx === focusPort ? clearFocus() : focusOn(hit.idx);
     },
     getTooltip: ({ object, layer }) => {
       if (object == null || !layer) return null;
@@ -651,6 +682,7 @@
           getPosition: d => d.position,
           getRadius: d => (5 + 17 * Math.sqrt(d.count / maxPortTotal)) * (d.idx === focusPort ? 1.25 : 1),
           radiusUnits: 'pixels',
+          radiusMinPixels: COARSE ? 9 : 0,
           filled: true,
           getFillColor: [11, 24, 32, 255],
           stroked: true,
@@ -823,6 +855,11 @@
   el.win.addEventListener('change', render);
   el.play.addEventListener('click', () => raf ? stopPlaying() : startPlaying());
   el.orbit.addEventListener('click', () => orbiting ? stopOrbit() : startOrbit());
+  el.toggle.addEventListener('click', () => {
+    const collapsed = el.panel.classList.toggle('collapsed');
+    el.toggle.setAttribute('aria-expanded', String(!collapsed));
+    el.toggle.setAttribute('aria-label', collapsed ? 'Expand controls' : 'Collapse controls');
+  });
   el.pcClose.addEventListener('click', clearFocus);
   el.pcBack.addEventListener('click', clearFocus);
   document.addEventListener('keydown', e => { if (e.key === 'Escape') clearFocus(); });
