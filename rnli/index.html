@@ -680,15 +680,15 @@
           id: 'ports',
           data: ports,
           getPosition: d => d.position,
-          getRadius: d => (5 + 17 * Math.sqrt(d.count / maxPortTotal)) * (d.idx === focusPort ? 1.25 : 1),
+          getRadius: d => (3 + 9 * Math.sqrt(d.count / maxPortTotal)) * (d.idx === focusPort ? 1.25 : 1),
           radiusUnits: 'pixels',
-          radiusMinPixels: COARSE ? 9 : 0,
+          radiusMinPixels: COARSE ? 6 : 0,
           filled: true,
           getFillColor: [11, 24, 32, 255],
           stroked: true,
           getLineColor: d => [...PORT_COLOR, portAlpha(d)],
           lineWidthUnits: 'pixels',
-          getLineWidth: d => d.idx === focusPort ? 3.5 : 2.5,
+          getLineWidth: d => d.idx === focusPort ? 3.5 : 2,
           pickable: true,
           updateTriggers: { getLineColor: [focusPort], getRadius: [focusPort], getLineWidth: [focusPort] }
         })
